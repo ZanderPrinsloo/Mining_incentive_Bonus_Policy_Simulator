@@ -1,0 +1,1468 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bonus Policy Simulator</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --hg-gold:   #D4A017;
+      --hg-dark:   #1A2744;
+      --hg-mid:    #2C3E6B;
+      --hg-light:  #F5F7FA;
+      --hg-border: #DEE2E6;
+    }
+    body { background: var(--hg-light); font-size: 0.875rem; }
+    .navbar { background: var(--hg-dark) !important; }
+    .navbar-brand .logo-dot { color: var(--hg-gold); }
+    .navbar .badge-scheme { background: var(--hg-gold); color: #111; font-size: .7rem; }
+    #scheme-bar { background: var(--hg-mid); border-bottom: 3px solid var(--hg-gold); }
+    #scheme-bar select, #scheme-bar input { font-size: .85rem; }
+    #scheme-meta-bar { background: var(--hg-light); border-bottom: 1px solid var(--hg-border); }
+    .btn-gold { background: var(--hg-gold); border: none; color: #111; font-weight: 700; }
+    .btn-gold:hover { background: #c29215; color: #111; }
+    .kpi-card { border-left: 4px solid var(--hg-gold); border-radius: 8px; }
+    .kpi-lbl { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #6c757d; }
+    .kpi-val { font-size: 1.45rem; font-weight: 700; color: var(--hg-dark); line-height: 1.1; }
+    .kpi-sub { font-size: .78rem; color: #6c757d; }
+    .nav-tabs .nav-link { color: var(--hg-mid); font-weight: 600; font-size: .82rem; }
+    .nav-tabs .nav-link.active { color: var(--hg-dark); border-bottom: 3px solid var(--hg-gold); }
+    .section-header { border-left: 4px solid var(--hg-gold); padding-left: .75rem;
+                       font-size: .95rem; font-weight: 700; color: var(--hg-dark); }
+    .text-gold { color: var(--hg-gold); }
+    .table thead th { background: var(--hg-dark); color: #fff; font-weight: 600; font-size: .78rem; }
+    .table-wrap { max-height: 480px; overflow-y: auto; border: 1px solid var(--hg-border); border-radius: 6px; }
+    .param-card { border-top: 3px solid var(--hg-gold); }
+    .param-card.disabled-param { opacity: .55; }
+    .template-badge { background: var(--hg-mid); color: #fff; font-size: .68rem; }
+    .intro-card { background: linear-gradient(135deg, var(--hg-dark) 0%, var(--hg-mid) 100%); color: #fff; }
+    .intro-card .section-header { color: #fff; border-left-color: var(--hg-gold); }
+    .empty-state { text-align: center; color: #9aa3b2; padding: 1.5rem; }
+    .form-label-sm { font-size: .78rem; font-weight: 600; color: var(--hg-dark); margin-bottom: .2rem; }
+    .metric-note { font-size: .72rem; color: #8a93a3; }
+    .chart-wrap { position: relative; height: 320px; }
+    .delta-pos { color: #1a7f37; font-weight: 600; }
+    .delta-neg { color: #c0392b; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar navbar-dark px-3">
+    <span class="navbar-brand mb-0 h5"><span class="logo-dot">●</span> Bonus Policy Simulator</span>
+    <span class="text-white-50 small">Harmony Gold &middot; Manual-Input Scenario Modelling</span>
+  </nav>
+
+  <div id="scheme-bar" class="px-3 py-2 d-flex flex-wrap align-items-center gap-2">
+    <label class="small text-white fw-semibold mb-0">Scenario:</label>
+    <select id="sel-scheme" class="form-select form-select-sm" style="width:auto;min-width:260px"></select>
+    <span id="badge-template" class="badge template-badge d-none">Template — read only</span>
+    <button class="btn btn-sm btn-outline-light" id="btn-new-scheme"><i class="bi bi-plus-lg me-1"></i>New Blank Scenario</button>
+    <button class="btn btn-sm btn-gold" id="btn-duplicate"><i class="bi bi-files me-1"></i>Duplicate as New Scenario</button>
+    <button class="btn btn-sm btn-outline-light" id="btn-rename"><i class="bi bi-pencil me-1"></i>Rename</button>
+    <button class="btn btn-sm btn-outline-danger" id="btn-delete"><i class="bi bi-trash me-1"></i>Delete</button>
+  </div>
+  <div id="scheme-meta-bar" class="px-3 py-2 d-flex flex-wrap align-items-center gap-3">
+    <div class="d-flex align-items-center gap-1">
+      <label class="small text-muted mb-0">Period covered:</label>
+      <span class="small fw-semibold" id="disp-period-range">—</span>
+      <span class="small text-muted">(set per period on the Manual Inputs tab)</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <label class="small text-muted mb-0">Section:</label>
+      <input type="text" class="form-control form-control-sm scheme-meta-field" data-field="section_label" style="width:160px" placeholder="e.g. Doornkop">
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <label class="small text-muted mb-0">Crew Type:</label>
+      <input type="text" class="form-control form-control-sm scheme-meta-field" data-field="crew_type" style="width:160px" placeholder="e.g. Stoping">
+    </div>
+  </div>
+
+  <div class="container-fluid px-3 py-3">
+
+    <div class="card intro-card shadow-sm mb-3">
+      <div class="card-body py-3">
+        <div class="section-header mb-1">What this tool does</div>
+        <p class="small mb-0" style="max-width:900px">
+          Enter aggregate production &amp; labour figures for a period (no per-crew detail needed), turn on the
+          bonus parameters that apply, set their weights, and see the projected bonus payout. Nine section
+          templates are pre-loaded from the real Harmony policy documents as starting points — duplicate one
+          and adjust rates to model a proposed change before it's implemented.
+        </p>
+      </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="mainTabs">
+      <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-inputs"><i class="bi bi-pencil-square me-1"></i>Manual Inputs</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-base"><i class="bi bi-sliders me-1"></i>Base Bonus</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-params"><i class="bi bi-gear-wide-connected me-1"></i>Parameters</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-results"><i class="bi bi-bar-chart-line me-1"></i>Results</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-compare"><i class="bi bi-columns-gap me-1"></i>Compare Scenarios</a></li>
+    </ul>
+
+    <div class="tab-content">
+
+      <!-- ══ TAB: Manual Inputs ══ -->
+      <div class="tab-pane fade show active" id="tab-inputs">
+        <div class="row g-3">
+          <div class="col-12 d-none" id="period-card">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                  <div class="section-header mb-0">Period</div>
+                </div>
+                <div class="d-none row g-2 align-items-end" id="doornkop-import-row">
+                  <div class="col-md-2 col-6">
+                    <label class="form-label-sm">Financial Year</label>
+                    <select class="form-select form-select-sm" id="sel-doornkop-import-fy"></select>
+                  </div>
+                  <div class="col-md-2 col-6">
+                    <label class="form-label-sm">Period From</label>
+                    <select class="form-select form-select-sm" id="sel-doornkop-import-from"></select>
+                  </div>
+                  <div class="col-md-2 col-6">
+                    <label class="form-label-sm">Period To</label>
+                    <select class="form-select form-select-sm" id="sel-doornkop-import-to"></select>
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <label class="form-label-sm">Section</label>
+                    <select class="form-select form-select-sm" id="sel-doornkop-import-section"></select>
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <button class="btn btn-sm btn-gold w-100" id="btn-doornkop-import"><i class="bi bi-cloud-download me-1"></i>Import from STPTM9000</button>
+                  </div>
+                  <div class="col-12">
+                    <p class="small text-muted mb-0">Picking a range shows the combined total for whichever of those months are already in this scenario. Import pulls the real figures for the whole range (and, if set, just that section) from STPTM9000.</p>
+                  </div>
+                </div>
+                <div class="small mt-2 d-none" id="doornkop-import-summary" style="background:var(--hg-light);border-radius:6px;padding:.5rem .75rem"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 d-none" id="no-period-state">
+            <div class="empty-state">No data for this period range yet — click "Import from STPTM9000" above.</div>
+          </div>
+
+          <div class="col-12" id="manual-inputs-body">
+          <div class="row g-3">
+          <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-3">
+                  <div class="section-header mb-0">Production &amp; Labour (required)</div>
+                  <span class="badge template-badge d-none" id="badge-range-mode">Combined total — read-only</span>
+                </div>
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label-sm">Total m&sup2; Achieved</label>
+                    <input type="number" class="form-control input-field" data-field="total_sqm" step="any">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Crew Count</label>
+                    <input type="number" class="form-control input-field" data-field="crew_count" step="any">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Labour per Crew</label>
+                    <input type="number" class="form-control input-field" data-field="people_per_crew" step="any">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Total Labour <span class="metric-note">(computed)</span></label>
+                    <input type="text" class="form-control" id="disp-total-labor" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Efficiency (m&sup2;/employee) <span class="metric-note">(computed)</span></label>
+                    <input type="text" class="form-control" id="disp-efficiency" disabled>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="section-header mb-3">Comparison Baseline (optional)</div>
+                <p class="small text-muted">Enter what was actually paid, if known, to see the delta against this simulation.</p>
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label-sm">Actual Total Bonus Paid</label>
+                    <input type="number" class="form-control input-field" data-field="actual_total_bonus" step="any">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Actual R/m&sup2;</label>
+                    <input type="number" class="form-control input-field" data-field="actual_r_per_sqm" step="any">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card shadow-sm">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+                  <div class="section-header mb-0">Reference Metrics (optional)</div>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Reference metrics entry mode">
+                    <input type="radio" class="btn-check" name="ref-mode" id="ref-mode-total" value="total" checked>
+                    <label class="btn btn-outline-secondary" for="ref-mode-total">Enter as Total</label>
+                    <input type="radio" class="btn-check" name="ref-mode" id="ref-mode-per-crew" value="per_crew">
+                    <label class="btn btn-outline-secondary" for="ref-mode-per-crew">Enter Per Crew</label>
+                  </div>
+                </div>
+                <p class="small text-muted mb-1">Only needed by parameters that link to them (see the Parameters tab) — otherwise leave blank.</p>
+                <p class="small text-muted" id="ref-mode-hint"></p>
+                <div class="row g-3">
+                  <div class="col-md-3 col-6">
+                    <label class="form-label-sm">Safety Incidents (count)</label>
+                    <input type="number" class="form-control input-field" data-field="safety_incidents" step="any">
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <label class="form-label-sm">Sweepings Distance (m)</label>
+                    <input type="number" class="form-control input-field" data-field="sweepings_distance_m" step="any">
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <label class="form-label-sm">Stoping Width Achieved (cm)</label>
+                    <input type="number" class="form-control input-field" data-field="stoping_width_cm" step="any">
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <label class="form-label-sm">Quality Blasts / Driller Shifts</label>
+                    <input type="number" class="form-control input-field" data-field="quality_blast_count" step="any">
+                  </div>
+                  <div class="col-md-3 col-6">
+                    <label class="form-label-sm">AWOP Count</label>
+                    <input type="number" class="form-control input-field" data-field="awop_count" step="any">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: Base Bonus ══ -->
+      <div class="tab-pane fade" id="tab-base">
+        <div class="row g-3">
+          <div class="col-lg-5">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="section-header mb-3">Base Bonus Basis</div>
+                <label class="form-label-sm">Calculate qualification against</label>
+                <div class="btn-group w-100 mb-3" role="group">
+                  <input type="radio" class="btn-check" name="basis" id="basis-sqm" value="sqm">
+                  <label class="btn btn-outline-secondary" for="basis-sqm">Total m&sup2;</label>
+                  <input type="radio" class="btn-check" name="basis" id="basis-efficiency" value="efficiency">
+                  <label class="btn btn-outline-secondary" for="basis-efficiency">Efficiency (m&sup2;/employee)</label>
+                </div>
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="form-label-sm">Threshold</label>
+                    <input type="number" class="form-control base-field" data-field="threshold" step="any">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Rand per point of Threshold</label>
+                    <input type="number" class="form-control base-field" data-field="threshold_bonus" step="any">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label-sm">Periods (annualisation)</label>
+                    <input type="number" class="form-control base-field" data-field="periods" min="1" step="1">
+                  </div>
+                  <div class="col-6 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="chk-use-bands">
+                      <label class="form-check-label form-label-sm" for="chk-use-bands">Use Achievement Bands</label>
+                    </div>
+                  </div>
+                </div>
+                <div class="small text-muted mt-2">Achieved: <strong id="disp-achieved-pct">—</strong> of threshold</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-7">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                  <div class="section-header mb-0">Achievement Bands</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Crew count entry mode">
+                      <input type="radio" class="btn-check" name="band-count-mode" id="band-mode-count" value="count" checked>
+                      <label class="btn btn-outline-secondary" for="band-mode-count">Count</label>
+                      <input type="radio" class="btn-check" name="band-count-mode" id="band-mode-pct" value="pct">
+                      <label class="btn btn-outline-secondary" for="band-mode-pct">% of Crew</label>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-add-band"><i class="bi bi-plus-lg me-1"></i>Add Band</button>
+                  </div>
+                </div>
+                <p class="small text-muted mb-1">Distribute crews across payout tiers instead of entering per-crew detail
+                  — e.g. "6 crews paid at 100%, 4 crews paid at 60%". Ignored if Achievement Bands is off.</p>
+                <p class="small text-muted" id="band-mode-hint"></p>
+                <div class="table-wrap">
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead><tr><th id="th-crew-count">Crew Count</th><th>Payout %</th><th>Amount</th><th></th></tr></thead>
+                    <tbody id="tbl-bands-body"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: Parameters ══ -->
+      <div class="tab-pane fade" id="tab-params">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+          <div class="section-header mb-0">Bonus Parameters</div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Qualifying crews entry mode">
+              <input type="radio" class="btn-check" name="qual-mode" id="qual-mode-count" value="count" checked>
+              <label class="btn btn-outline-secondary" for="qual-mode-count">Count</label>
+              <input type="radio" class="btn-check" name="qual-mode" id="qual-mode-pct" value="pct">
+              <label class="btn btn-outline-secondary" for="qual-mode-pct">% of Crew</label>
+            </div>
+            <button class="btn btn-sm btn-gold" id="btn-add-param"><i class="bi bi-plus-lg me-1"></i>Add Parameter</button>
+          </div>
+        </div>
+        <p class="small text-muted mb-2" id="qual-mode-hint"></p>
+        <div id="params-container" class="row g-3"></div>
+      </div>
+
+      <!-- ══ TAB: Results ══ -->
+      <div class="tab-pane fade" id="tab-results">
+        <div class="row g-3 mb-3">
+          <div class="col-sm-6 col-xl-3">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Base Bonus</div>
+              <div class="kpi-val" id="kpi-base-bonus">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-3">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Total Bonus (this period)</div>
+              <div class="kpi-val" id="kpi-total-bonus">—</div>
+              <div class="kpi-sub" id="kpi-total-bonus-delta">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-3">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">R / m&sup2;</div>
+              <div class="kpi-val" id="kpi-r-sqm">—</div>
+              <div class="kpi-sub" id="kpi-r-sqm-delta">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-3">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">R / Employee</div>
+              <div class="kpi-val" id="kpi-r-man">—</div>
+            </div></div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded mb-3" style="background:var(--hg-light);border:1px solid var(--hg-border)">
+          <div class="small fw-semibold text-muted mb-1"><i class="bi bi-calendar-range me-1"></i>Projected over <span id="disp-periods-label">1</span> period(s)</div>
+          <div id="projected-body">—</div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-xl-7">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="section-header mb-3">Parameter Breakdown</div>
+                <div class="table-wrap">
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead><tr><th>Parameter</th><th>Basis</th><th class="text-end">Amount</th></tr></thead>
+                    <tbody id="tbl-results-body"></tbody>
+                    <tfoot id="tbl-results-foot" class="table-light fw-bold"></tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-xl-5">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="section-header mb-3">Bonus Composition</div>
+                <div class="chart-wrap"><canvas id="chart-composition"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: Compare Scenarios ══ -->
+      <div class="tab-pane fade" id="tab-compare">
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <div class="section-header mb-3">Filter Scenarios</div>
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2 col-6">
+                <label class="form-label-sm">Financial Year</label>
+                <select class="form-select form-select-sm" id="filter-fy"></select>
+              </div>
+              <div class="col-md-2 col-6">
+                <label class="form-label-sm">Period From</label>
+                <input type="month" class="form-control form-control-sm" id="filter-period-from">
+              </div>
+              <div class="col-md-2 col-6">
+                <label class="form-label-sm">Period To</label>
+                <input type="month" class="form-control form-control-sm" id="filter-period-to">
+              </div>
+              <div class="col-md-2 col-6">
+                <label class="form-label-sm">Section</label>
+                <select class="form-select form-select-sm" id="filter-section"></select>
+              </div>
+              <div class="col-md-2 col-6">
+                <label class="form-label-sm">Crew Type</label>
+                <select class="form-select form-select-sm" id="filter-crew-type"></select>
+              </div>
+              <div class="col-md-2 col-6">
+                <button class="btn btn-sm btn-gold w-100" id="btn-apply-summary"><i class="bi bi-funnel-fill me-1"></i>Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-3 mb-3" id="summary-kpi-row">
+          <div class="col-sm-6 col-xl-2">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Total m&sup2;</div>
+              <div class="kpi-val" id="kpi-sum-sqm">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-2">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Total Bonus</div>
+              <div class="kpi-val" id="kpi-sum-bonus">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-2">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Avg Crew Count</div>
+              <div class="kpi-val" id="kpi-avg-crew">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-2">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Avg m&sup2; / Crew</div>
+              <div class="kpi-val" id="kpi-avg-sqm-crew">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-2">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">R / m&sup2; (avg)</div>
+              <div class="kpi-val" id="kpi-avg-r-sqm">—</div>
+            </div></div>
+          </div>
+          <div class="col-sm-6 col-xl-2">
+            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
+              <div class="kpi-lbl">Periods</div>
+              <div class="kpi-val" id="kpi-period-count">—</div>
+            </div></div>
+          </div>
+        </div>
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <div class="section-header mb-2">Select Scenarios to Compare</div>
+            <div id="compare-picker" class="d-flex flex-wrap gap-3"></div>
+            <button class="btn btn-sm btn-gold mt-3" id="btn-run-compare"><i class="bi bi-play-fill me-1"></i>Compare</button>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-xl-7">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="section-header mb-3">Side-by-Side</div>
+                <div class="table-wrap">
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead><tr><th>Scenario</th><th class="text-end">Base Bonus</th><th class="text-end">Total Bonus</th><th class="text-end">R/m&sup2;</th><th class="text-end">R/Employee</th></tr></thead>
+                    <tbody id="tbl-compare-body"><tr><td colspan="5" class="empty-state">Pick scenarios above and click Compare.</td></tr></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-xl-5">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="section-header mb-3">Total Bonus by Scenario</div>
+                <div class="chart-wrap"><canvas id="chart-compare"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const METRIC_LABELS = {
+      total_sqm: 'Total m²', crew_count: 'Crew Count', people_per_crew: 'Labour per Crew',
+      safety_incidents: 'Safety Incidents', sweepings_distance_m: 'Sweepings Distance (m)',
+      stoping_width_cm: 'Stoping Width (cm)', quality_blast_count: 'Quality Blasts / Driller Shifts',
+      awop_count: 'AWOP Count',
+    };
+    const REF_METRIC_FIELDS = [
+      'safety_incidents', 'sweepings_distance_m', 'stoping_width_cm', 'quality_blast_count', 'awop_count',
+    ];
+    // Reference metrics are always stored as a TOTAL for the section (that's what the
+    // calc engine's rand_per_unit parameters multiply against). "Per Crew" is purely an
+    // entry convenience: displayed value = total / crew count, converted back to a total
+    // on save — nothing server-side needs to know which mode was used to enter it.
+    let refMetricsMode = localStorage.getItem('refMetricsMode') === 'per_crew' ? 'per_crew' : 'total';
+    // Qualifying Crews (per pct_base parameter) is always stored as an absolute crew
+    // count, prorating that parameter's % against only its share of Base Bonus. "% of
+    // Crew" here is an entry convenience — unlike Achievement Bands' own %-of-crew
+    // (denominator = Manual Inputs crew count), this one's denominator is the total crews
+    // that actually qualified for Base Bonus in Achievement Bands (bands_total_crews).
+    let paramQualMode = localStorage.getItem('paramQualMode') === 'pct' ? 'pct' : 'count';
+    const BASIS_LABELS = {
+      pct_base: '% of Base Bonus', pct_total: '% of Total Bonus',
+      rand_per_unit: 'Rand per unit', fixed: 'Fixed Rand amount',
+    };
+    const PARAM_NAME_PRESETS = [
+      'Safety Bonus', 'Netting', 'Sweepings Penalty', 'Stoping-Width Factor', 'Dip Factor',
+      'Steep Stope Factor', 'Physical Condition Bonus', 'Trigger Bonus', 'AWOP Penalty',
+      'Section 54 Penalty', 'Safety Representative Bonus', 'Quality Drilling Bonus',
+    ];
+    const CUSTOM_NAME = '__custom__';
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    function fmtPeriod(p) {
+      if (!p) return '';
+      const [y, m] = p.split('-');
+      return MONTH_NAMES[Number(m) - 1] + ' ' + y;
+    }
+    // Manual Inputs are per period (month) now, not one snapshot per scheme — Base Bonus
+    // config / Achievement Bands / Parameters stay scheme-wide. activePeriod() is the
+    // single source of truth every input-field read/write goes through.
+    function activePeriod() {
+      if (!current || !current.periods) return null;
+      return current.periods.find(p => p.id === current.active_period_id) || null;
+    }
+
+    let schemes = [];
+    let current = null;   // full state from /api/schemes/<id>
+    let currentId = null;
+    let compositionChart = null;
+    let compareChart = null;
+
+    const $ = (sel, root) => (root || document).querySelector(sel);
+    const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+    function fmtMoney(v) {
+      if (v === null || v === undefined || isNaN(v)) return '—';
+      return 'R ' + Number(v).toLocaleString('en-ZA', { maximumFractionDigits: 0 });
+    }
+    function fmtNum(v, dp) {
+      if (v === null || v === undefined || isNaN(v)) return '—';
+      return Number(v).toLocaleString('en-ZA', { maximumFractionDigits: dp === undefined ? 2 : dp });
+    }
+
+    async function api(url, opts) {
+      const res = await fetch(url, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Request failed');
+      return body;
+    }
+
+    // ── Scheme picker ──────────────────────────────────────────────────────
+
+    async function loadSchemeList(selectId) {
+      schemes = await api('/api/schemes');
+      const sel = $('#sel-scheme');
+      sel.innerHTML = '';
+      const templates = schemes.filter(s => s.is_template);
+      const scenarios = schemes.filter(s => !s.is_template);
+      if (templates.length) {
+        const og = document.createElement('optgroup');
+        og.label = 'Section Templates (read-only)';
+        templates.forEach(s => og.appendChild(new Option(s.name, s.id)));
+        sel.appendChild(og);
+      }
+      const og2 = document.createElement('optgroup');
+      og2.label = 'Your Scenarios';
+      if (!scenarios.length) {
+        const opt = new Option('— none yet, duplicate a template or create blank —', '');
+        opt.disabled = true;
+        og2.appendChild(opt);
+      }
+      scenarios.forEach(s => og2.appendChild(new Option(s.name, s.id)));
+      sel.appendChild(og2);
+
+      const targetId = selectId || (scenarios[0] && scenarios[0].id) || (templates[0] && templates[0].id);
+      if (targetId) {
+        // Don't set sel.value here — selectScheme() sets it once its data has actually
+        // loaded, so the dropdown's name and the rendered page change together instead
+        // of the name flashing ahead of stale content from the previous scenario.
+        await selectScheme(targetId);
+      }
+      renderComparePicker();
+    }
+
+    async function selectScheme(id) {
+      currentId = Number(id);
+      current = await api('/api/schemes/' + currentId);
+      $('#sel-scheme').value = currentId;
+      const isTpl = !!current.scheme.is_template;
+      $('#badge-template').classList.toggle('d-none', !isTpl);
+      $('#btn-rename').disabled = isTpl;
+      $('#btn-delete').disabled = isTpl;
+      $$('.input-field, .base-field').forEach(el => el.disabled = isTpl);
+      $('#btn-add-band').disabled = isTpl;
+      $('#btn-add-param').disabled = isTpl;
+      $('#chk-use-bands').disabled = isTpl;
+      $$('.scheme-meta-field').forEach(el => {
+        const f = el.dataset.field;
+        el.value = current.scheme[f] || '';
+        el.disabled = isTpl;
+      });
+      $('#disp-period-range').textContent = current.scheme.period_from
+        ? fmtPeriod(current.scheme.period_from) + ' – ' + fmtPeriod(current.scheme.period_to)
+        : '—';
+      renderAll();
+    }
+
+    $('#sel-scheme').addEventListener('change', e => selectScheme(e.target.value));
+
+    $$('.scheme-meta-field').forEach(el => {
+      el.addEventListener('change', async () => {
+        const field = el.dataset.field;
+        await api('/api/schemes/' + currentId, {
+          method: 'PUT', body: JSON.stringify({ [field]: el.value }),
+        });
+        await loadSchemeList(currentId);
+      });
+    });
+
+    $('#btn-new-scheme').addEventListener('click', async () => {
+      const name = prompt('Name for the new blank scenario:');
+      if (!name) return;
+      const created = await api('/api/schemes', { method: 'POST', body: JSON.stringify({ name }) });
+      await loadSchemeList(created.id);
+    });
+
+    $('#btn-duplicate').addEventListener('click', async () => {
+      const base = current.scheme.name;
+      const name = prompt('Name for the duplicated scenario:', base + ' — copy');
+      if (!name) return;
+      const created = await api('/api/schemes/' + currentId + '/clone', { method: 'POST', body: JSON.stringify({ name }) });
+      await loadSchemeList(created.id);
+    });
+
+    $('#btn-rename').addEventListener('click', async () => {
+      const name = prompt('New name:', current.scheme.name);
+      if (!name) return;
+      await api('/api/schemes/' + currentId, { method: 'PUT', body: JSON.stringify({ name }) });
+      await loadSchemeList(currentId);
+    });
+
+    $('#btn-delete').addEventListener('click', async () => {
+      if (!confirm('Delete "' + current.scheme.name + '"? This cannot be undone.')) return;
+      await api('/api/schemes/' + currentId, { method: 'DELETE' });
+      currentId = null;
+      await loadSchemeList();
+    });
+
+    // ── Rendering ────────────────────────────────────────────────────────────
+
+    function renderAll() {
+      renderPeriodPicker();
+      renderInputs();
+      renderBase();
+      renderBands();
+      renderParams();
+      renderResults();
+    }
+
+    // Real-data import (STPTM9000) — only offered on Doornkop-derived, non-template
+    // scenarios, and only once we've confirmed the SQL Server is actually reachable.
+    // When available, the import range (From/To) REPLACES the plain period picker as
+    // the only period control: a single month is editable as before, a wider range
+    // shows the combined (read-only) total across whichever of those months already
+    // have data in this scenario.
+    let doornkopImportStatus = null; // { available, periods } | null while unchecked
+    async function checkDoornkopImportAvailability() {
+      try {
+        doornkopImportStatus = await api('/api/doornkop-import/status');
+      } catch (e) {
+        doornkopImportStatus = { available: false, periods: [] };
+      }
+      if (current) renderAll();
+    }
+    checkDoornkopImportAvailability();
+
+    function isDoornkopMode() {
+      return !!(current && doornkopImportStatus && current.scheme.template_key === 'doornkop'
+        && !current.scheme.is_template && doornkopImportStatus.available);
+    }
+
+    function currentRangePeriods() {
+      if (!isDoornkopMode()) return [];
+      const from = $('#sel-doornkop-import-from').value;
+      const to = $('#sel-doornkop-import-to').value;
+      if (!from || !to) return [];
+      return current.periods.filter(p => p.period >= from && p.period <= to);
+    }
+
+    function isRangeAggregateMode() {
+      if (!isDoornkopMode()) return false;
+      const from = $('#sel-doornkop-import-from').value;
+      const to = $('#sel-doornkop-import-to').value;
+      const periods = currentRangePeriods();
+      return !(periods.length === 1 && from === to && periods[0].period === from);
+    }
+
+    function computeAggregatePeriod(periods) {
+      const sum = key => periods.reduce((s, p) => s + (Number(p[key]) || 0), 0);
+      const crew = sum('crew_count');
+      const totalLabourAll = periods.reduce((s, p) => s + (Number(p.crew_count) || 0) * (Number(p.people_per_crew) || 0), 0);
+      const totalSqm = sum('total_sqm');
+      const totalBonus = sum('actual_total_bonus');
+      return {
+        total_sqm: totalSqm || null,
+        crew_count: crew || null,
+        people_per_crew: crew ? Math.round((totalLabourAll / crew) * 100) / 100 : null,
+        actual_total_bonus: totalBonus || null,
+        actual_r_per_sqm: (totalBonus && totalSqm) ? Math.round((totalBonus / totalSqm) * 10000) / 10000 : null,
+        safety_incidents: sum('safety_incidents') || null,
+        sweepings_distance_m: sum('sweepings_distance_m') || null,
+        stoping_width_cm: sum('stoping_width_cm') || null,
+        quality_blast_count: sum('quality_blast_count') || null,
+        awop_count: sum('awop_count') || null,
+      };
+    }
+
+    // Non-Doornkop scenarios have no real per-month data source, so there's nothing to
+    // pick — they always have exactly one server-managed period (see
+    // storage/schemes.py _ensure_default_period) and Manual Inputs is just always
+    // shown/editable. Projecting across multiple periods is what the "Periods
+    // (annualisation)" multiplier on the Base Bonus tab is for. Only Doornkop-derived
+    // scenarios get the Period card at all, for the STPTM9000 import range picker.
+    function renderPeriodPicker() {
+      const doornkopMode = isDoornkopMode();
+      $('#period-card').classList.toggle('d-none', !doornkopMode);
+      renderDoornkopImportRow();
+      if (doornkopMode) {
+        const hasPeriods = currentRangePeriods().length > 0;
+        $('#no-period-state').classList.toggle('d-none', hasPeriods);
+        $('#manual-inputs-body').classList.toggle('d-none', !hasPeriods);
+      } else {
+        $('#no-period-state').classList.add('d-none');
+        $('#manual-inputs-body').classList.remove('d-none');
+      }
+    }
+
+    // Nearest available period to `target` — 'ceil' picks the smallest available period
+    // >= target, 'floor' the largest <= target. Used to clamp a Financial Year's Jul-Jun
+    // bounds to what STPTM9000 actually has data for (only the last 3 years).
+    function clampToAvailablePeriod(target, direction) {
+      const sorted = [...doornkopImportStatus.periods].sort(); // ascending
+      if (!sorted.length) return target;
+      if (direction === 'ceil') return sorted.find(p => p >= target) || sorted[sorted.length - 1];
+      return [...sorted].reverse().find(p => p <= target) || sorted[0];
+    }
+
+    function renderDoornkopImportRow() {
+      if (!current || !doornkopImportStatus) return;
+      $('#doornkop-import-summary').classList.add('d-none'); // stale from a previous period/scenario
+      const show = isDoornkopMode();
+      const row = $('#doornkop-import-row');
+      row.classList.toggle('d-none', !show);
+      if (!show) return;
+      const periods = doornkopImportStatus.periods; // most recent first
+      // Default to this scenario's own latest stored period (so the view matches what's
+      // already there); only fall back to "most recent available" for a brand new scenario.
+      const ownLatest = current.periods.length ? current.periods[current.periods.length - 1].period : null;
+      const defaultVal = (ownLatest && periods.includes(ownLatest)) ? ownLatest : periods[0];
+      [['#sel-doornkop-import-from', defaultVal], ['#sel-doornkop-import-to', defaultVal]]
+        .forEach(([selector, dv]) => {
+          const sel = $(selector);
+          const prevValue = sel.value;
+          sel.innerHTML = '';
+          periods.forEach(p => sel.appendChild(new Option(fmtPeriod(p), p)));
+          sel.value = periods.includes(prevValue) ? prevValue : dv;
+        });
+      populateFilterSelect($('#sel-doornkop-import-section'), doornkopImportStatus.sections, 'All Sections');
+    }
+
+    // Changing From then To fires two independent fetches — without a sequence guard,
+    // the older one (From's) can resolve after the newer one (To's) and silently
+    // overwrite it with stale data. Only the most recently *started* request may apply.
+    let doornkopRangeRequestSeq = 0;
+    async function onDoornkopRangeChange() {
+      const seq = ++doornkopRangeRequestSeq;
+      const periods = currentRangePeriods();
+      if (periods.length > 0) {
+        const latest = periods.reduce((a, b) => (a.period > b.period ? a : b));
+        if (latest.id !== current.active_period_id) {
+          const result = await api('/api/schemes/' + currentId + '?period_id=' + latest.id);
+          if (seq !== doornkopRangeRequestSeq) return; // superseded by a newer range change
+          current = result;
+        }
+      }
+      if (seq !== doornkopRangeRequestSeq) return; // superseded by a newer range change
+      renderAll();
+    }
+    buildFyOptions('#sel-doornkop-import-fy');
+    $('#sel-doornkop-import-fy').addEventListener('change', () => {
+      const v = $('#sel-doornkop-import-fy').value;
+      if (v !== 'custom') {
+        const r = fyRange(Number(v));
+        $('#sel-doornkop-import-from').value = clampToAvailablePeriod(r.from, 'ceil');
+        $('#sel-doornkop-import-to').value = clampToAvailablePeriod(r.to, 'floor');
+      }
+      onDoornkopRangeChange();
+    });
+    $('#sel-doornkop-import-from').addEventListener('change', () => {
+      $('#sel-doornkop-import-fy').value = 'custom';
+      onDoornkopRangeChange();
+    });
+    $('#sel-doornkop-import-to').addEventListener('change', () => {
+      $('#sel-doornkop-import-fy').value = 'custom';
+      onDoornkopRangeChange();
+    });
+
+    $('#btn-doornkop-import').addEventListener('click', async () => {
+      const from = $('#sel-doornkop-import-from').value;
+      const to = $('#sel-doornkop-import-to').value;
+      const section = $('#sel-doornkop-import-section').value;
+      if (!from || !to) return;
+      try {
+        current = await api('/api/schemes/' + currentId + '/doornkop-import-range', {
+          method: 'POST', body: JSON.stringify({ from, to, section }),
+        });
+        renderAll();
+        // Each period is stored separately (Manual Inputs is per period), so show the
+        // per-month breakdown AND the combined total right here too.
+        const imported = current.periods
+          .filter(p => p.period >= from && p.period <= to)
+          .sort((a, b) => a.period.localeCompare(b.period));
+        const combinedSqm = imported.reduce((sum, p) => sum + (p.total_sqm || 0), 0);
+        const combinedBonus = imported.reduce((sum, p) => sum + (p.actual_total_bonus || 0), 0);
+        const perMonth = imported.map(p => `${fmtPeriod(p.period)} (${fmtNum(p.total_sqm, 0)} m²)`).join(', ');
+        const sectionLabel = section ? ` (section ${section})` : ' (whole mine)';
+        const summary = $('#doornkop-import-summary');
+        summary.innerHTML = `Imported ${imported.length} period(s)${sectionLabel}: ${perMonth} — combined <strong>${fmtNum(combinedSqm, 0)} m²</strong>` +
+          (combinedBonus ? `, <strong>${fmtMoney(combinedBonus)}</strong> actual bonus paid` : '') +
+          `. The Period range above now shows that combined total directly.`;
+        summary.classList.remove('d-none');
+      } catch (err) {
+        alert('Import failed: ' + err.message);
+      }
+    });
+
+    function refMetricCrewCount() {
+      if (isDoornkopMode()) {
+        return currentRangePeriods().reduce((s, p) => s + (Number(p.crew_count) || 0), 0);
+      }
+      const p = activePeriod();
+      return p ? Number(p.crew_count) || 0 : 0;
+    }
+
+    function renderRefModeToggle() {
+      $('#ref-mode-total').checked = refMetricsMode === 'total';
+      $('#ref-mode-per-crew').checked = refMetricsMode === 'per_crew';
+      const crew = refMetricCrewCount();
+      const hint = $('#ref-mode-hint');
+      if (refMetricsMode === 'per_crew') {
+        hint.textContent = crew
+          ? `Values below are per crew — stored total = value × ${fmtNum(crew, 0)} crews.`
+          : 'Set Crew Count above first — Per Crew needs it to convert to a total.';
+      } else {
+        hint.textContent = 'Values below are totals for the whole section/period.';
+      }
+    }
+
+    function renderInputs() {
+      const aggregateMode = isRangeAggregateMode();
+      const period = aggregateMode ? computeAggregatePeriod(currentRangePeriods()) : activePeriod();
+      const readOnly = aggregateMode || !!current.scheme.is_template;
+      const crew = refMetricCrewCount();
+
+      $('#badge-range-mode').classList.toggle('d-none', !aggregateMode);
+
+      $$('.input-field').forEach(el => {
+        const f = el.dataset.field;
+        let v = period ? period[f] : null;
+        if (REF_METRIC_FIELDS.includes(f) && refMetricsMode === 'per_crew' && v !== null && v !== undefined && crew) {
+          v = Math.round((v / crew) * 100) / 100;
+        }
+        el.value = v === null || v === undefined ? '' : v;
+        el.disabled = readOnly;
+      });
+
+      if (aggregateMode) {
+        const totalLabour = (period.crew_count || 0) * (period.people_per_crew || 0);
+        $('#disp-total-labor').value = fmtNum(totalLabour);
+        $('#disp-efficiency').value = fmtNum(period.total_sqm && totalLabour ? period.total_sqm / totalLabour : 0);
+      } else {
+        $('#disp-total-labor').value = fmtNum(current.computed.inputs_echo.total_labor);
+        $('#disp-efficiency').value = fmtNum(current.computed.inputs_echo.efficiency);
+      }
+      renderRefModeToggle();
+    }
+
+    $$('input[name="ref-mode"]').forEach(el => {
+      el.addEventListener('change', () => {
+        refMetricsMode = el.value === 'per_crew' ? 'per_crew' : 'total';
+        localStorage.setItem('refMetricsMode', refMetricsMode);
+        renderInputs();
+      });
+    });
+
+    $$('.input-field').forEach(el => {
+      el.addEventListener('change', async () => {
+        const period = activePeriod();
+        if (!period) return; // no period selected yet — fields should be hidden anyway
+        const field = el.dataset.field;
+        let val = el.value === '' ? null : Number(el.value);
+        if (REF_METRIC_FIELDS.includes(field) && refMetricsMode === 'per_crew' && val !== null) {
+          const crew = refMetricCrewCount();
+          if (crew) val = val * crew;
+        }
+        current = await api('/api/periods/' + period.id, {
+          method: 'PUT', body: JSON.stringify({ [field]: val }),
+        });
+        renderInputs(); renderResults(); renderBands();
+      });
+    });
+
+    function renderBase() {
+      const cfg = current.base_cfg;
+      $('#basis-sqm').checked = cfg.basis === 'sqm';
+      $('#basis-efficiency').checked = cfg.basis === 'efficiency';
+      $$('.base-field').forEach(el => {
+        const f = el.dataset.field;
+        el.value = cfg[f] === null || cfg[f] === undefined ? '' : cfg[f];
+      });
+      $('#chk-use-bands').checked = !!cfg.use_bands;
+      $('#disp-achieved-pct').textContent = fmtNum(current.computed.achieved_pct, 1) + '%';
+    }
+
+    // Base Bonus / Bands / Parameters are scheme-wide, but re-fetching after an edit
+    // should keep showing whichever period the user currently has open.
+    function periodQS() {
+      return current.active_period_id ? '?period_id=' + current.active_period_id : '';
+    }
+
+    $$('input[name="basis"]').forEach(el => {
+      el.addEventListener('change', async () => {
+        current = await api('/api/schemes/' + currentId + '/base-bonus' + periodQS(), {
+          method: 'PUT', body: JSON.stringify({ basis: el.value }),
+        });
+        renderAll();
+      });
+    });
+    $$('.base-field').forEach(el => {
+      el.addEventListener('change', async () => {
+        const field = el.dataset.field;
+        current = await api('/api/schemes/' + currentId + '/base-bonus' + periodQS(), {
+          method: 'PUT', body: JSON.stringify({ [field]: el.value === '' ? 0 : Number(el.value) }),
+        });
+        renderAll();
+      });
+    });
+    $('#chk-use-bands').addEventListener('change', async () => {
+      current = await api('/api/schemes/' + currentId + '/base-bonus' + periodQS(), {
+        method: 'PUT', body: JSON.stringify({ use_bands: $('#chk-use-bands').checked }),
+      });
+      renderAll();
+    });
+
+    // Crew Count is always stored as an absolute count (that's what the calc engine
+    // multiplies against threshold_bonus). "% of Crew" is purely an entry convenience:
+    // displayed value = count / crew count * 100, converted back to a count on save.
+    let bandCountMode = localStorage.getItem('bandCountMode') === 'pct' ? 'pct' : 'count';
+
+    function renderBandModeToggle() {
+      $('#band-mode-count').checked = bandCountMode === 'count';
+      $('#band-mode-pct').checked = bandCountMode === 'pct';
+      const crew = refMetricCrewCount();
+      const hint = $('#band-mode-hint');
+      $('#th-crew-count').textContent = bandCountMode === 'pct' ? '% of Crew' : 'Crew Count';
+      if (bandCountMode === 'pct') {
+        hint.textContent = crew
+          ? `Values below are % of crew count — stored crew count = value% × ${fmtNum(crew, 0)} crews.`
+          : 'Set Crew Count in Manual Inputs first — % of Crew needs it to convert to a count.';
+      } else {
+        hint.textContent = 'Values below are absolute crew counts.';
+      }
+    }
+
+    $$('input[name="band-count-mode"]').forEach(el => {
+      el.addEventListener('change', () => {
+        bandCountMode = el.value === 'pct' ? 'pct' : 'count';
+        localStorage.setItem('bandCountMode', bandCountMode);
+        renderBands();
+      });
+    });
+
+    function renderBands() {
+      const tbody = $('#tbl-bands-body');
+      tbody.innerHTML = '';
+      const amountsById = {};
+      current.computed.bands.forEach(b => { amountsById[b.id] = b.amount; });
+      renderBandModeToggle();
+      if (!current.bands.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No bands yet.</td></tr>';
+        return;
+      }
+      const crew = refMetricCrewCount();
+      current.bands.forEach(b => {
+        let crewCountDisplay = b.crew_count;
+        let crossRef = '';
+        if (bandCountMode === 'pct' && crew) {
+          crewCountDisplay = Math.round((b.crew_count / crew) * 10000) / 100;
+          crossRef = `<div class="small text-muted mt-1">${fmtNum(b.crew_count, 1)} crews</div>`;
+        } else if (bandCountMode === 'count' && crew) {
+          crossRef = `<div class="small text-muted mt-1">${fmtNum((b.crew_count / crew) * 100, 1)}% of crew</div>`;
+        }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><input type="number" class="form-control form-control-sm band-field" data-id="${b.id}" data-field="crew_count" value="${crewCountDisplay}" step="any">${crossRef}</td>
+          <td><input type="number" class="form-control form-control-sm band-field" data-id="${b.id}" data-field="payout_pct" value="${b.payout_pct}" step="any"></td>
+          <td class="text-end">${fmtMoney(amountsById[b.id])}</td>
+          <td><button class="btn btn-sm btn-outline-danger btn-del-band" data-id="${b.id}"><i class="bi bi-trash"></i></button></td>`;
+        tbody.appendChild(tr);
+      });
+      $$('.band-field', tbody).forEach(el => {
+        el.addEventListener('change', async () => {
+          const field = el.dataset.field;
+          let val = Number(el.value);
+          if (field === 'crew_count' && bandCountMode === 'pct') {
+            const c = refMetricCrewCount();
+            if (c) val = (val / 100) * c;
+          }
+          current = await api('/api/bands/' + el.dataset.id + periodQS(), {
+            method: 'PUT', body: JSON.stringify({ [field]: val }),
+          });
+          renderBands(); renderResults();
+        });
+      });
+      $$('.btn-del-band', tbody).forEach(el => {
+        el.addEventListener('click', async () => {
+          current = await api('/api/bands/' + el.dataset.id + '?scheme_id=' + currentId +
+            (current.active_period_id ? '&period_id=' + current.active_period_id : ''), { method: 'DELETE' });
+          renderBands(); renderResults();
+        });
+      });
+    }
+
+    $('#btn-add-band').addEventListener('click', async () => {
+      current = await api('/api/schemes/' + currentId + '/bands' + periodQS(), {
+        method: 'POST', body: JSON.stringify({ crew_count: 1, payout_pct: 100 }),
+      });
+      renderBands(); renderResults();
+    });
+
+    function metricOptions(selected) {
+      return Object.keys(METRIC_LABELS).map(k =>
+        `<option value="${k}" ${k === selected ? 'selected' : ''}>${METRIC_LABELS[k]}</option>`).join('');
+    }
+    function basisOptions(selected) {
+      return Object.keys(BASIS_LABELS).map(k =>
+        `<option value="${k}" ${k === selected ? 'selected' : ''}>${BASIS_LABELS[k]}</option>`).join('');
+    }
+    function paramNameOptions(selected) {
+      const isPreset = PARAM_NAME_PRESETS.includes(selected);
+      return PARAM_NAME_PRESETS.map(n =>
+        `<option value="${n}" ${n === selected ? 'selected' : ''}>${n}</option>`).join('')
+        + `<option value="${CUSTOM_NAME}" ${!isPreset ? 'selected' : ''}>Custom / Other…</option>`;
+    }
+
+    function renderQualModeToggle() {
+      $('#qual-mode-count').checked = paramQualMode === 'count';
+      $('#qual-mode-pct').checked = paramQualMode === 'pct';
+      const bandsTotalCrews = (current.computed && current.computed.bands_total_crews) || 0;
+      const hint = $('#qual-mode-hint');
+      if (paramQualMode === 'pct') {
+        hint.textContent = bandsTotalCrews
+          ? `"% of Base Bonus" parameters below: Qualifying Crews is % of the ${fmtNum(bandsTotalCrews, 0)} crews that qualified for Base Bonus in Achievement Bands (not Manual Inputs' Crew Count). Blank = applies to the whole Base Bonus.`
+          : 'Add Achievement Bands (or set Crew Count) first — % of Crew needs a total to convert against.';
+      } else {
+        hint.textContent = `"% of Base Bonus" parameters below: Qualifying Crews is an absolute count, out of ${fmtNum(bandsTotalCrews, 0)} crews that qualified for Base Bonus in Achievement Bands. Blank = applies to the whole Base Bonus.`;
+      }
+    }
+
+    $$('input[name="qual-mode"]').forEach(el => {
+      el.addEventListener('change', () => {
+        paramQualMode = el.value === 'pct' ? 'pct' : 'count';
+        localStorage.setItem('paramQualMode', paramQualMode);
+        renderParams();
+      });
+    });
+
+    function renderParams() {
+      const container = $('#params-container');
+      container.innerHTML = '';
+      renderQualModeToggle();
+      if (!current.parameters.length) {
+        container.innerHTML = '<div class="col-12"><div class="empty-state">No parameters yet — add one, or duplicate a section template that already has them configured.</div></div>';
+        return;
+      }
+      const bandsTotalCrews = (current.computed && current.computed.bands_total_crews) || 0;
+      const computedById = {};
+      (current.computed.parameters || []).forEach(cp => { computedById[cp.id] = cp; });
+      current.parameters.forEach(p => {
+        const col = document.createElement('div');
+        col.className = 'col-lg-6';
+        const disabledCls = p.enabled ? '' : 'disabled-param';
+        const hasQual = p.qualifying_crews !== null && p.qualifying_crews !== undefined;
+        const qualMode = p.gate_metric ? 'auto' : (hasQual ? 'manual' : 'all');
+        let qualDisplay = '';
+        let qualCrossRef = '';
+        if (hasQual) {
+          if (paramQualMode === 'pct' && bandsTotalCrews) {
+            qualDisplay = Math.round((p.qualifying_crews / bandsTotalCrews) * 10000) / 100;
+            qualCrossRef = fmtNum(p.qualifying_crews, 1) + ' crews';
+          } else {
+            qualDisplay = p.qualifying_crews;
+            qualCrossRef = bandsTotalCrews ? fmtNum((p.qualifying_crews / bandsTotalCrews) * 100, 1) + '% of qualifying crews' : '';
+          }
+        }
+        const cp = computedById[p.id];
+        let gateHint = 'Pick the reference metric where one unit forfeits one crew\'s share (e.g. Safety Incidents).';
+        if (qualMode === 'auto' && cp) {
+          gateHint = `${fmtNum(cp.gate_metric_qty, 1)} recorded → ${fmtNum(cp.effective_qualifying_crews, 1)} of ${fmtNum(bandsTotalCrews, 1)} crews still qualify.`;
+        }
+        col.innerHTML = `
+          <div class="card shadow-sm param-card ${disabledCls}">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                <div class="d-flex flex-column gap-1" style="max-width:70%">
+                  <select class="form-select form-select-sm fw-semibold param-field" data-id="${p.id}" data-field="name">${paramNameOptions(p.name)}</select>
+                  <input type="text" class="form-control form-control-sm param-field param-name-custom" data-id="${p.id}" data-field="name" placeholder="Custom parameter name" value="${PARAM_NAME_PRESETS.includes(p.name) ? '' : p.name}" style="${PARAM_NAME_PRESETS.includes(p.name) ? 'display:none' : ''}">
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="form-check form-switch mb-0">
+                    <input class="form-check-input param-field" type="checkbox" data-id="${p.id}" data-field="enabled" ${p.enabled ? 'checked' : ''}>
+                  </div>
+                  <button class="btn btn-sm btn-outline-danger btn-del-param" data-id="${p.id}"><i class="bi bi-trash"></i></button>
+                </div>
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label-sm">Basis</label>
+                  <select class="form-select form-select-sm param-field" data-id="${p.id}" data-field="basis">${basisOptions(p.basis)}</select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label-sm">Value</label>
+                  <input type="number" class="form-control form-control-sm param-field" data-id="${p.id}" data-field="value" value="${p.value}" step="any">
+                </div>
+                <div class="col-6 metric-field" style="${p.basis === 'rand_per_unit' ? '' : 'display:none'}">
+                  <label class="form-label-sm">Per unit of</label>
+                  <select class="form-select form-select-sm param-field" data-id="${p.id}" data-field="linked_metric">${metricOptions(p.linked_metric)}</select>
+                </div>
+                <div class="col-12 qual-field" style="${p.basis === 'pct_base' ? '' : 'display:none'}">
+                  <label class="form-label-sm">Qualifying Crews</label>
+                  <select class="form-select form-select-sm param-field qual-mode-select mb-1" data-id="${p.id}" data-field="__qual_mode">
+                    <option value="all" ${qualMode === 'all' ? 'selected' : ''}>All qualifying crews (whole Base Bonus)</option>
+                    <option value="manual" ${qualMode === 'manual' ? 'selected' : ''}>Manual count</option>
+                    <option value="auto" ${qualMode === 'auto' ? 'selected' : ''}>Auto: subtract a metric (e.g. incidents)</option>
+                  </select>
+                  <div class="qual-manual-sub" style="${qualMode === 'manual' ? '' : 'display:none'}">
+                    <div class="d-flex align-items-center gap-2">
+                      <input type="number" class="form-control form-control-sm param-field" style="max-width:140px" data-id="${p.id}" data-field="qualifying_crews" value="${qualDisplay}" step="any" placeholder="0">
+                      <div class="small text-muted">${qualCrossRef}</div>
+                    </div>
+                  </div>
+                  <div class="qual-auto-sub" style="${qualMode === 'auto' ? '' : 'display:none'}">
+                    <select class="form-select form-select-sm param-field" data-id="${p.id}" data-field="gate_metric">${metricOptions(p.gate_metric)}</select>
+                    <div class="small text-muted mt-1">${gateHint}</div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="metric-note">${p.notes || ''}</div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+        container.appendChild(col);
+      });
+
+      $$('.param-field', container).forEach(el => {
+        el.addEventListener('change', async () => {
+          const id = el.dataset.id, field = el.dataset.field;
+          let val = el.value;
+          if (field === '__qual_mode') {
+            let body;
+            if (val === 'all') body = { qualifying_crews: null, gate_metric: null };
+            else if (val === 'manual') body = { qualifying_crews: 0, gate_metric: null };
+            else body = { qualifying_crews: null, gate_metric: Object.keys(METRIC_LABELS)[0] };
+            current = await api('/api/parameters/' + id + periodQS(), { method: 'PUT', body: JSON.stringify(body) });
+            renderParams(); renderResults();
+            return;
+          }
+          if (field === 'enabled') val = el.checked;
+          if (field === 'value') val = Number(val);
+          if (field === 'qualifying_crews') {
+            val = el.value === '' ? null : Number(el.value);
+            if (val !== null && paramQualMode === 'pct') {
+              const c = (current.computed && current.computed.bands_total_crews) || 0;
+              if (c) val = (val / 100) * c;
+            }
+          }
+          if (field === 'name' && val === CUSTOM_NAME) {
+            const custom = $(`.param-name-custom[data-id="${id}"]`, container);
+            custom.style.display = '';
+            custom.value = '';
+            custom.focus();
+            return;
+          }
+          if (field === 'name') val = val.trim() || 'Parameter';
+          current = await api('/api/parameters/' + id + periodQS(), { method: 'PUT', body: JSON.stringify({ [field]: val }) });
+          renderParams(); renderResults();
+        });
+      });
+      $$('.btn-del-param', container).forEach(el => {
+        el.addEventListener('click', async () => {
+          current = await api('/api/parameters/' + el.dataset.id + '?scheme_id=' + currentId +
+            (current.active_period_id ? '&period_id=' + current.active_period_id : ''), { method: 'DELETE' });
+          renderParams(); renderResults();
+        });
+      });
+    }
+
+    $('#btn-add-param').addEventListener('click', async () => {
+      current = await api('/api/schemes/' + currentId + '/parameters' + periodQS(), {
+        method: 'POST', body: JSON.stringify({ name: 'New Parameter', basis: 'pct_base', value: 0, enabled: true }),
+      });
+      renderParams(); renderResults();
+    });
+
+    function renderResults() {
+      const c = current.computed;
+      $('#kpi-base-bonus').textContent = fmtMoney(c.base_bonus);
+      $('#kpi-total-bonus').textContent = fmtMoney(c.total_bonus);
+      $('#kpi-r-sqm').textContent = 'R ' + fmtNum(c.r_per_sqm, 2);
+      $('#kpi-r-man').textContent = 'R ' + fmtNum(c.r_per_man, 2);
+
+      if (c.delta_vs_actual !== null && c.delta_vs_actual !== undefined) {
+        const pos = c.delta_vs_actual >= 0;
+        $('#kpi-total-bonus-delta').innerHTML =
+          `<span class="${pos ? 'delta-pos' : 'delta-neg'}">${pos ? '+' : ''}${fmtMoney(c.delta_vs_actual)} vs actual</span>`;
+      } else {
+        $('#kpi-total-bonus-delta').textContent = 'No actual entered';
+      }
+      if (c.actual_r_per_sqm !== null && c.actual_r_per_sqm !== undefined) {
+        const d = c.r_per_sqm - c.actual_r_per_sqm;
+        const pos = d >= 0;
+        $('#kpi-r-sqm-delta').innerHTML = `<span class="${pos ? 'delta-pos' : 'delta-neg'}">${pos ? '+' : ''}${fmtNum(d, 2)} vs actual</span>`;
+      } else {
+        $('#kpi-r-sqm-delta').textContent = 'No actual entered';
+      }
+
+      $('#disp-periods-label').textContent = c.periods;
+      $('#projected-body').innerHTML =
+        `Projected Base Bonus: <strong>${fmtMoney(c.projected_base_bonus)}</strong> &nbsp;|&nbsp; ` +
+        `Projected Total Bonus: <strong>${fmtMoney(c.projected_total_bonus)}</strong>`;
+
+      const tbody = $('#tbl-results-body');
+      tbody.innerHTML = '';
+      const row = (label, basisLabel, amount) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${label}</td><td>${basisLabel}</td><td class="text-end">${fmtMoney(amount)}</td>`;
+        tbody.appendChild(tr);
+      };
+      row('Base Bonus', c.basis === 'sqm' ? 'Total m² basis' : 'Efficiency basis', c.base_bonus);
+      c.parameters.forEach(p => {
+        if (!p.enabled) return;
+        row(p.name, BASIS_LABELS[p.basis] || p.basis, p.amount);
+      });
+      $('#tbl-results-foot').innerHTML =
+        `<tr><td colspan="2">Total Bonus</td><td class="text-end">${fmtMoney(c.total_bonus)}</td></tr>`;
+
+      const labels = ['Base Bonus', ...c.parameters.filter(p => p.enabled).map(p => p.name)];
+      const values = [c.base_bonus, ...c.parameters.filter(p => p.enabled).map(p => p.amount)];
+      if (compositionChart) compositionChart.destroy();
+      compositionChart = new Chart($('#chart-composition'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values.map(v => Math.abs(v)), backgroundColor: palette(values.length) }] },
+        options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } },
+      });
+    }
+
+    function palette(n) {
+      const base = ['#D4A017', '#1A2744', '#2C3E6B', '#8a93a3', '#1a7f37', '#c0392b', '#6f42c1', '#0d6efd'];
+      const out = [];
+      for (let i = 0; i < n; i++) out.push(base[i % base.length]);
+      return out;
+    }
+
+    // ── Compare ────────────────────────────────────────────────────────────
+
+    function fyLabel(startYear) {
+      return `FY${startYear}/${String(startYear + 1).slice(-2)}`;
+    }
+    function fyRange(startYear) {
+      return { from: `${startYear}-07`, to: `${startYear + 1}-06` };
+    }
+    function buildFyOptions(selector) {
+      const sel = $(selector);
+      sel.innerHTML = '';
+      const now = new Date();
+      const curYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1; // SA mining FY starts July
+      for (let offset = -2; offset <= 2; offset++) {
+        const startYear = curYear + offset;
+        sel.appendChild(new Option(fyLabel(startYear), String(startYear)));
+      }
+      sel.appendChild(new Option('Custom range', 'custom'));
+      sel.value = 'custom';
+    }
+    buildFyOptions('#filter-fy');
+    $('#filter-fy').addEventListener('change', () => {
+      const v = $('#filter-fy').value;
+      if (v !== 'custom') {
+        const r = fyRange(Number(v));
+        $('#filter-period-from').value = r.from;
+        $('#filter-period-to').value = r.to;
+      }
+      renderComparePicker();
+    });
+    $('#filter-period-from').addEventListener('change', () => { $('#filter-fy').value = 'custom'; renderComparePicker(); });
+    $('#filter-period-to').addEventListener('change', () => { $('#filter-fy').value = 'custom'; renderComparePicker(); });
+    $('#filter-section').addEventListener('change', renderComparePicker);
+    $('#filter-crew-type').addEventListener('change', renderComparePicker);
+
+    function populateFilterSelect(selectEl, values, allLabel) {
+      const prevValue = selectEl.value;
+      selectEl.innerHTML = '';
+      selectEl.appendChild(new Option(allLabel, ''));
+      values.forEach(v => selectEl.appendChild(new Option(v, v)));
+      if ([...selectEl.options].some(o => o.value === prevValue)) selectEl.value = prevValue;
+    }
+
+    function monthRangesOverlap(sFrom, sTo, fFrom, fTo) {
+      if (!sFrom && !sTo) return true; // scenario has no period set — don't hide it
+      if (fFrom && sTo && sTo < fFrom) return false;
+      if (fTo && sFrom && sFrom > fTo) return false;
+      return true;
+    }
+
+    function getFilteredSchemes(opts) {
+      opts = opts || {};
+      const fFrom = $('#filter-period-from').value;
+      const fTo = $('#filter-period-to').value;
+      const fSection = $('#filter-section').value;
+      const fCrewType = $('#filter-crew-type').value;
+      return schemes.filter(s => {
+        if (opts.excludeTemplates && s.is_template) return false;
+        if (fSection && s.section_label !== fSection) return false;
+        if (fCrewType && s.crew_type !== fCrewType) return false;
+        if (!monthRangesOverlap(s.period_from, s.period_to, fFrom, fTo)) return false;
+        return true;
+      });
+    }
+
+    function renderComparePicker() {
+      const sections = [...new Set(schemes.map(s => s.section_label).filter(Boolean))].sort();
+      const crewTypes = [...new Set(schemes.map(s => s.crew_type).filter(Boolean))].sort();
+      populateFilterSelect($('#filter-section'), sections, 'All Sections');
+      populateFilterSelect($('#filter-crew-type'), crewTypes, 'All Types');
+
+      const filtered = getFilteredSchemes();
+
+      const el = $('#compare-picker');
+      el.innerHTML = '';
+      if (!filtered.length) {
+        el.innerHTML = '<div class="empty-state">No scenarios match these filters.</div>';
+        return;
+      }
+      filtered.forEach(s => {
+        const id = 'cmp-' + s.id;
+        const wrap = document.createElement('div');
+        wrap.className = 'form-check';
+        wrap.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="${id}">
+                           <label class="form-check-label small" for="${id}">${s.name}${s.is_template ? ' <span class="text-muted">(template)</span>' : ''}</label>`;
+        el.appendChild(wrap);
+      });
+    }
+
+    // Aggregate summary tiles — Total m² / Total Bonus are summed (they're genuinely
+    // additive across periods); Crew Count, m²/Crew and R/m² are per-period rates that
+    // don't sum meaningfully, so those are averaged across the matching periods instead.
+    // Templates are excluded — they're placeholder starting points, not real period data.
+    // A scenario can hold several periods, so this pulls each matching scheme's own
+    // periods (clamped to the Period From/To filter) rather than one snapshot per scheme.
+    async function applySummary() {
+      const filtered = getFilteredSchemes({ excludeTemplates: true });
+      const tiles = {
+        sqm: $('#kpi-sum-sqm'), bonus: $('#kpi-sum-bonus'), crew: $('#kpi-avg-crew'),
+        sqmCrew: $('#kpi-avg-sqm-crew'), rSqm: $('#kpi-avg-r-sqm'), periods: $('#kpi-period-count'),
+      };
+      if (!filtered.length) {
+        Object.values(tiles).forEach(el => el.textContent = '—');
+        return;
+      }
+      const fFrom = $('#filter-period-from').value;
+      const fTo = $('#filter-period-to').value;
+      const qsParams = [];
+      if (fFrom) qsParams.push('from=' + fFrom);
+      if (fTo) qsParams.push('to=' + fTo);
+      const qs = qsParams.length ? '?' + qsParams.join('&') : '';
+      const perScheme = await Promise.all(
+        filtered.map(s => api('/api/schemes/' + s.id + '/period-summary' + qs))
+      );
+      const entries = perScheme.flat();
+      let sumSqm = 0, sumBonus = 0, sumCrew = 0, sqmPerCrewTotal = 0, sqmPerCrewN = 0, rSqmTotal = 0, rSqmN = 0;
+      entries.forEach(e => {
+        const c = e.computed;
+        const sqm = c.inputs_echo.total_sqm, crew = c.inputs_echo.crew_count;
+        sumSqm += sqm;
+        sumBonus += c.total_bonus;
+        sumCrew += crew;
+        if (crew) { sqmPerCrewTotal += sqm / crew; sqmPerCrewN++; }
+        if (sqm) { rSqmTotal += c.r_per_sqm; rSqmN++; }
+      });
+      if (!entries.length) {
+        Object.values(tiles).forEach(el => el.textContent = '—');
+        tiles.periods.textContent = '0';
+        return;
+      }
+      tiles.sqm.textContent = fmtNum(sumSqm, 0) + ' m²';
+      tiles.bonus.textContent = fmtMoney(sumBonus);
+      tiles.crew.textContent = fmtNum(sumCrew / entries.length, 1);
+      tiles.sqmCrew.textContent = sqmPerCrewN ? fmtNum(sqmPerCrewTotal / sqmPerCrewN, 1) + ' m²' : '—';
+      tiles.rSqm.textContent = rSqmN ? 'R ' + fmtNum(rSqmTotal / rSqmN, 2) : '—';
+      tiles.periods.textContent = String(entries.length);
+    }
+    $('#btn-apply-summary').addEventListener('click', applySummary);
+
+    $('#btn-run-compare').addEventListener('click', async () => {
+      const ids = $$('#compare-picker input:checked').map(el => el.value);
+      if (!ids.length) return;
+      const results = await api('/api/compare?ids=' + ids.join(','));
+      const tbody = $('#tbl-compare-body');
+      tbody.innerHTML = '';
+      results.forEach(r => {
+        const c = r.computed;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.scheme.name}</td><td class="text-end">${fmtMoney(c.base_bonus)}</td>
+                         <td class="text-end">${fmtMoney(c.total_bonus)}</td>
+                         <td class="text-end">R ${fmtNum(c.r_per_sqm, 2)}</td>
+                         <td class="text-end">R ${fmtNum(c.r_per_man, 2)}</td>`;
+        tbody.appendChild(tr);
+      });
+      if (compareChart) compareChart.destroy();
+      compareChart = new Chart($('#chart-compare'), {
+        type: 'bar',
+        data: {
+          labels: results.map(r => r.scheme.name),
+          datasets: [{ label: 'Total Bonus', data: results.map(r => r.computed.total_bonus), backgroundColor: '#D4A017' }],
+        },
+        options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+      });
+    });
+
+    loadSchemeList();
+  })();
+  </script>
+</body>
+</html>

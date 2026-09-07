@@ -1,0 +1,19 @@
+# Data — local simulation state, not shared
+data/*.db
+
+# Per-deployment secrets/config — copy .env.example instead
+.env
+
+# Claude Code local session state
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/

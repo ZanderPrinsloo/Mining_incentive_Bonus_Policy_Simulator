@@ -39,7 +39,15 @@ def _compute_full_state(scheme_id: int, period_id: int | None = None) -> dict:
         period_id = periods[-1]["id"]  # most recent period by default
     active = next((p for p in periods if p["id"] == period_id), None)
     state["active_period_id"] = active["id"] if active else None
-    state["computed"] = calculate(active or {}, state["base_cfg"], state["bands"], state["parameters"])
+    state["computed"] = calculate(active or {}, state["base_cfg"], state["bands"], state["parameters"],
+                                   state["curve_points"])
+    # Each period also gets its own calculate() result attached, so the client can
+    # sum Base Bonus / Total Bonus / per-parameter amounts across a selected period
+    # range (Results should match "the real total bonus paid" for that whole range,
+    # not just whichever single period happens to be active) — same aggregation
+    # pattern already used for Manual Inputs' own combined-total display.
+    for p in periods:
+        p["computed"] = calculate(p, state["base_cfg"], state["bands"], state["parameters"], state["curve_points"])
     return state
 
 
@@ -177,6 +185,14 @@ def create_app() -> Flask:
             "people_per_crew": data["people_per_crew"],
             "actual_total_bonus": data["actual_total_bonus"],
             "actual_r_per_sqm": data["actual_r_per_sqm"],
+            "safety_incidents": data["safety_incidents"],
+            "sweepings_distance_m": data["sweepings_distance_m"],
+            "stoping_width_cm": data["stoping_width_cm"],
+            "quality_blast_count": data["quality_blast_count"],
+            "awop_count": data["awop_count"],
+            "break_bonus_total": data["break_bonus_total"],
+            "safety_bonus_total": data["safety_bonus_total"],
+            "driller_bonus_total": data["driller_bonus_total"],
         }
         existing = next((p for p in store.list_periods(scheme_id) if p["period"] == period), None)
         if existing:
@@ -187,8 +203,16 @@ def create_app() -> Flask:
         """all_parameter_pcts: one {name: pct|None} dict per imported period. Parameters
         are scheme-wide, so with more than one period this sets each one to the average
         of that period's real derived % across all periods where it was derivable —
-        the same "average a per-period rate that doesn't sum" rule used elsewhere here."""
+        the same "average a per-period rate that doesn't sum" rule used elsewhere here.
+
+        Only touches parameters still on basis "pct_base" — a parameter reconfigured to
+        "rand_per_unit" (e.g. Safety Bonus linked to safety_bonus_total for an exact-
+        match Doornkop scenario) has its own real Rand value; overwriting it with a
+        derived % here would silently break that setup on the next re-import.
+        """
         for param in store.list_parameters(scheme_id):
+            if param.get("basis") != "pct_base":
+                continue
             values = [pcts[param["name"]] for pcts in all_parameter_pcts
                       if pcts.get(param["name"]) is not None]
             if values:
@@ -206,7 +230,9 @@ def create_app() -> Flask:
         if not period:
             raise ValueError("Period is required")
 
-        data = stptm_import.fetch_period(period, section)
+        gang_type = scheme.get("gang_type") or "STOPE BREAKING"
+        data = stptm_import.fetch_period(period, section, gang_type=gang_type,
+                                          scope_actual_to_gang_type=True)
         period_row = _apply_doornkop_period(scheme_id, period, data)
         _apply_doornkop_parameter_pcts(scheme_id, [data["parameter_pcts"]])
 
@@ -232,12 +258,14 @@ def create_app() -> Flask:
         if not periods:
             raise ValueError(f"No real Doornkop periods found between {period_from} and {period_to}")
 
+        gang_type = scheme.get("gang_type") or "STOPE BREAKING"
         last_period_row = None
         all_pcts = []
         skipped = []
         for period in periods:
             try:
-                data = stptm_import.fetch_period(period, section)
+                data = stptm_import.fetch_period(period, section, gang_type=gang_type,
+                                                  scope_actual_to_gang_type=True)
             except ValueError:
                 skipped.append(period)  # e.g. this section had no activity that month
                 continue
@@ -284,6 +312,30 @@ def create_app() -> Flask:
             return jsonify(_compute_full_state(conn_scheme_id, _period_id_arg()))
         return jsonify({"ok": True})
 
+    # ── Base Bonus Rate Curve ────────────────────────────────────────────────
+
+    @app.route("/api/schemes/<int:scheme_id>/curve-points", methods=["POST"])
+    def api_create_curve_point(scheme_id):
+        scheme = _scheme_or_404(scheme_id)
+        _reject_template_edit(scheme)
+        body = request.get_json(force=True) or {}
+        store.create_curve_point(scheme_id, body)
+        return jsonify(_compute_full_state(scheme_id, _period_id_arg())), 201
+
+    @app.route("/api/curve-points/<int:point_id>", methods=["PUT"])
+    def api_update_curve_point(point_id):
+        body = request.get_json(force=True) or {}
+        point = store.update_curve_point(point_id, body)
+        return jsonify(_compute_full_state(point["scheme_id"], _period_id_arg()))
+
+    @app.route("/api/curve-points/<int:point_id>", methods=["DELETE"])
+    def api_delete_curve_point(point_id):
+        conn_scheme_id = request.args.get("scheme_id", type=int)
+        store.delete_curve_point(point_id)
+        if conn_scheme_id:
+            return jsonify(_compute_full_state(conn_scheme_id, _period_id_arg()))
+        return jsonify({"ok": True})
+
     # ── Parameters ───────────────────────────────────────────────────────────
 
     @app.route("/api/schemes/<int:scheme_id>/parameters", methods=["POST"])
@@ -312,14 +364,49 @@ def create_app() -> Flask:
 
     @app.route("/api/compare")
     def api_compare():
+        """Side-by-Side comparison. Each scheme contributes the sum of its OWN
+        periods that fall inside ?from=&to= (its whole period list if neither is
+        given, or its single active period if none of its periods fall in that
+        range at all — an empty row would be more confusing than showing what it
+        does have). That range sum is then scaled by the scheme's own "periods"
+        multiplier (Results tab) — e.g. a manual scenario with one real period
+        set to 14 shows as if it covered 14 periods, comparable to a real
+        scenario that already has 14 actual months in range. R/m² and R/Employee
+        are real rates (bonus ÷ production) and are NOT scaled by the multiplier
+        — multiplying both sides of a ratio by the same factor wouldn't change
+        it anyway, and scaling only the numerator would inflate the rate.
+        """
         ids_param = request.args.get("ids", "")
         ids = [int(x) for x in ids_param.split(",") if x.strip().isdigit()]
+        from_ = request.args.get("from") or None
+        to_ = request.args.get("to") or None
         results = []
         for sid in ids:
             scheme = store.get_scheme_row(sid)
             if scheme is None:
                 continue
-            results.append(_compute_full_state(sid))
+            state = _compute_full_state(sid)
+            periods = state["periods"]
+            in_range = [p for p in periods
+                        if (not from_ or p["period"] >= from_) and (not to_ or p["period"] <= to_)]
+            active = next((p for p in periods if p["id"] == state["active_period_id"]), None)
+            use_periods = in_range or ([active] if active else periods[-1:])
+            total_sqm = sum(p["computed"]["inputs_echo"]["total_sqm"] for p in use_periods)
+            total_labor = sum(p["computed"]["inputs_echo"]["total_labor"] for p in use_periods)
+            real_base = sum(p["computed"]["base_bonus"] for p in use_periods)
+            real_total = sum(p["computed"]["total_bonus"] for p in use_periods)
+            periods_mult = max(int(state["base_cfg"].get("periods") or 1), 1)
+            results.append({
+                "scheme": scheme,
+                "computed": {
+                    "base_bonus": real_base * periods_mult,
+                    "total_bonus": real_total * periods_mult,
+                    "r_per_sqm": real_total / total_sqm if total_sqm else 0.0,
+                    "r_per_man": real_total / total_labor if total_labor else 0.0,
+                    "periods_included": len(use_periods),
+                    "periods_multiplier": periods_mult,
+                },
+            })
         return jsonify(results)
 
     return app

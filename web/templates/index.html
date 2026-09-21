@@ -59,7 +59,16 @@
     <label class="small text-white fw-semibold mb-0">Scenario:</label>
     <select id="sel-scheme" class="form-select form-select-sm" style="width:auto;min-width:260px"></select>
     <span id="badge-template" class="badge template-badge d-none">Template — read only</span>
-    <button class="btn btn-sm btn-outline-light" id="btn-new-scheme"><i class="bi bi-plus-lg me-1"></i>New Blank Scenario</button>
+    <div class="dropdown">
+      <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button" id="btn-new-scheme-dd" data-bs-toggle="dropdown">
+        <i class="bi bi-plus-lg me-1"></i>New Scenario
+      </button>
+      <ul class="dropdown-menu" id="new-scheme-menu">
+        <li><a class="dropdown-item" href="#" id="btn-new-scheme">Blank Scenario</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">From Template</h6></li>
+      </ul>
+    </div>
     <button class="btn btn-sm btn-gold" id="btn-duplicate"><i class="bi bi-files me-1"></i>Duplicate as New Scenario</button>
     <button class="btn btn-sm btn-outline-light" id="btn-rename"><i class="bi bi-pencil me-1"></i>Rename</button>
     <button class="btn btn-sm btn-outline-danger" id="btn-delete"><i class="bi bi-trash me-1"></i>Delete</button>
@@ -78,6 +87,11 @@
       <label class="small text-muted mb-0">Crew Type:</label>
       <input type="text" class="form-control form-control-sm scheme-meta-field" data-field="crew_type" style="width:160px" placeholder="e.g. Stoping">
     </div>
+  </div>
+  <div id="mining-type-bar" class="px-3 py-2 d-none align-items-center gap-3">
+    <label class="small text-muted fw-semibold mb-0">Mining Type:</label>
+    <div class="d-flex align-items-center gap-3" id="mining-type-group"></div>
+    <span class="small text-muted" id="mining-type-hint"></span>
   </div>
 
   <div class="container-fluid px-3 py-3">
@@ -153,20 +167,20 @@
               <div class="card-body">
                 <div class="d-flex align-items-center gap-2 mb-3">
                   <div class="section-header mb-0">Production &amp; Labour (required)</div>
-                  <span class="badge template-badge d-none" id="badge-range-mode">Combined total — read-only</span>
+                  <span class="badge template-badge d-none" id="badge-range-mode" title="Editing here adjusts the most recent period in this range by the same amount you change the combined figure by">Combined total — editable</span>
                 </div>
                 <div class="row g-3">
                   <div class="col-6">
                     <label class="form-label-sm">Total m&sup2; Achieved</label>
-                    <input type="number" class="form-control input-field" data-field="total_sqm" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="total_sqm">
                   </div>
                   <div class="col-6">
                     <label class="form-label-sm">Crew Count</label>
-                    <input type="number" class="form-control input-field" data-field="crew_count" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="crew_count">
                   </div>
                   <div class="col-6">
                     <label class="form-label-sm">Labour per Crew</label>
-                    <input type="number" class="form-control input-field" data-field="people_per_crew" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="people_per_crew">
                   </div>
                   <div class="col-6">
                     <label class="form-label-sm">Total Labour <span class="metric-note">(computed)</span></label>
@@ -177,6 +191,7 @@
                     <input type="text" class="form-control" id="disp-efficiency" disabled>
                   </div>
                 </div>
+                <p class="small text-muted mt-2 mb-0">Base Bonus, Safety Bonus and Quality Drilling are all calculated from these production figures and the policy rates on the Base Bonus / Parameters tabs — change Total m² or Crew Count above to see the bonus respond, the way changing real production would.</p>
               </div>
             </div>
           </div>
@@ -189,11 +204,11 @@
                 <div class="row g-3">
                   <div class="col-6">
                     <label class="form-label-sm">Actual Total Bonus Paid</label>
-                    <input type="number" class="form-control input-field" data-field="actual_total_bonus" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="actual_total_bonus">
                   </div>
                   <div class="col-6">
                     <label class="form-label-sm">Actual R/m&sup2;</label>
-                    <input type="number" class="form-control input-field" data-field="actual_r_per_sqm" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="actual_r_per_sqm">
                   </div>
                 </div>
               </div>
@@ -217,23 +232,23 @@
                 <div class="row g-3">
                   <div class="col-md-3 col-6">
                     <label class="form-label-sm">Safety Incidents (count)</label>
-                    <input type="number" class="form-control input-field" data-field="safety_incidents" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="safety_incidents">
                   </div>
                   <div class="col-md-3 col-6">
                     <label class="form-label-sm">Sweepings Distance (m)</label>
-                    <input type="number" class="form-control input-field" data-field="sweepings_distance_m" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="sweepings_distance_m">
                   </div>
                   <div class="col-md-3 col-6">
                     <label class="form-label-sm">Stoping Width Achieved (cm)</label>
-                    <input type="number" class="form-control input-field" data-field="stoping_width_cm" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="stoping_width_cm">
                   </div>
                   <div class="col-md-3 col-6">
                     <label class="form-label-sm">Quality Blasts / Driller Shifts</label>
-                    <input type="number" class="form-control input-field" data-field="quality_blast_count" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="quality_blast_count">
                   </div>
                   <div class="col-md-3 col-6">
                     <label class="form-label-sm">AWOP Count</label>
-                    <input type="number" class="form-control input-field" data-field="awop_count" step="any">
+                    <input type="text" inputmode="decimal" class="form-control input-field" data-field="awop_count">
                   </div>
                 </div>
               </div>
@@ -251,39 +266,38 @@
             <div class="card shadow-sm h-100">
               <div class="card-body">
                 <div class="section-header mb-3">Base Bonus Basis</div>
-                <label class="form-label-sm">Calculate qualification against</label>
+                <label class="form-label-sm">Pay Base Bonus per</label>
                 <div class="btn-group w-100 mb-3" role="group">
                   <input type="radio" class="btn-check" name="basis" id="basis-sqm" value="sqm">
-                  <label class="btn btn-outline-secondary" for="basis-sqm">Total m&sup2;</label>
+                  <label class="btn btn-outline-secondary" for="basis-sqm">Rand per m&sup2;</label>
                   <input type="radio" class="btn-check" name="basis" id="basis-efficiency" value="efficiency">
-                  <label class="btn btn-outline-secondary" for="basis-efficiency">Efficiency (m&sup2;/employee)</label>
+                  <label class="btn btn-outline-secondary" for="basis-efficiency">Rand per Employee (R/Man)</label>
+                  <input type="radio" class="btn-check" name="basis" id="basis-curve" value="curve">
+                  <label class="btn btn-outline-secondary" for="basis-curve">Rate Curve (by crew size)</label>
                 </div>
                 <div class="row g-3">
-                  <div class="col-6">
-                    <label class="form-label-sm">Threshold</label>
-                    <input type="number" class="form-control base-field" data-field="threshold" step="any">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label-sm">Rand per point of Threshold</label>
-                    <input type="number" class="form-control base-field" data-field="threshold_bonus" step="any">
-                  </div>
-                  <div class="col-6">
-                    <label class="form-label-sm">Periods (annualisation)</label>
-                    <input type="number" class="form-control base-field" data-field="periods" min="1" step="1">
-                  </div>
-                  <div class="col-6 d-flex align-items-end">
-                    <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="chk-use-bands">
-                      <label class="form-check-label form-label-sm" for="chk-use-bands">Use Achievement Bands</label>
+                  <div id="base-threshold-fields" class="row g-3 col-12">
+                    <div class="col-12">
+                      <label class="form-label-sm" id="lbl-base-rate">Rate (R per m&sup2;)</label>
+                      <input type="text" inputmode="decimal" class="form-control base-field" data-field="threshold_bonus">
+                      <div class="small text-muted mt-1" id="base-rate-hint"></div>
+                    </div>
+                    <div class="col-12">
+                      <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="chk-use-bands">
+                        <label class="form-check-label form-label-sm" for="chk-use-bands">Use Achievement Bands instead (per-crew payout tiers)</label>
+                      </div>
                     </div>
                   </div>
+                  <div id="base-curve-hint-field" class="col-12 d-none">
+                    <p class="small text-muted mb-0">Base Bonus is looked up from the Rate Curve table below (Rand per employee, by average crew m²), not a single rate — see that card for the live calculation.</p>
+                  </div>
                 </div>
-                <div class="small text-muted mt-2">Achieved: <strong id="disp-achieved-pct">—</strong> of threshold</div>
               </div>
             </div>
           </div>
 
-          <div class="col-lg-7">
+          <div class="col-lg-7" id="base-bands-col">
             <div class="card shadow-sm h-100">
               <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
@@ -295,18 +309,69 @@
                       <input type="radio" class="btn-check" name="band-count-mode" id="band-mode-pct" value="pct">
                       <label class="btn btn-outline-secondary" for="band-mode-pct">% of Crew</label>
                     </div>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-bands-charts"><i class="bi bi-bar-chart-line me-1"></i>View Charts</button>
+                    <button class="btn btn-sm btn-outline-secondary" id="btn-add-remaining-band"><i class="bi bi-dash-circle me-1"></i>Add Remaining</button>
                     <button class="btn btn-sm btn-outline-secondary" id="btn-add-band"><i class="bi bi-plus-lg me-1"></i>Add Band</button>
                   </div>
                 </div>
-                <p class="small text-muted mb-1">Distribute crews across payout tiers instead of entering per-crew detail
-                  — e.g. "6 crews paid at 100%, 4 crews paid at 60%". Ignored if Achievement Bands is off.</p>
+                <p class="small text-muted mb-1">Distribute crews across payout/achievement tiers instead of entering
+                  per-crew detail. Payout % is a direct multiplier on that band's Amount (e.g. "this tier is only paid at
+                  90% of rate"). Achievement % scales the m²-per-employee assumption for that band against the section's
+                  own average (100% = matches it) — only affects the m² basis, routed through Efficiency so Rate stays
+                  R/m² instead of R/crew; has no effect under the R/Man basis. Ignored if Achievement Bands is off.
+                  "Add Remaining" adds the leftover crews (Crew Count minus every other band's) as a new 0%-payout band,
+                  with Achievement % solved so every band's Total m² adds up to Total m² Achieved — so you can see how
+                  many crews didn't earn the bonus. Whichever band has the lowest Payout % is then kept as that running
+                  remainder automatically: editing any other band's Crew Count or Achievement % re-solves it so the
+                  totals never exceed Manual Inputs.</p>
                 <p class="small text-muted" id="band-mode-hint"></p>
+                <div class="alert alert-danger d-none py-2 px-3 small mb-2" id="bands-crew-warning"></div>
+                <div class="alert alert-danger d-none py-2 px-3 small mb-2" id="bands-sqm-warning"></div>
                 <div class="table-wrap">
                   <table class="table table-sm table-bordered mb-0">
-                    <thead><tr><th id="th-crew-count">Crew Count</th><th>Payout %</th><th>Amount</th><th></th></tr></thead>
+                    <thead><tr><th id="th-crew-count">Crew Count</th><th>Achievement %</th><th>Payout %</th><th>Amount</th><th>Total m&sup2;</th><th></th></tr></thead>
                     <tbody id="tbl-bands-body"></tbody>
+                    <tfoot id="tbl-bands-foot"></tfoot>
                   </table>
                 </div>
+                <div class="d-none mt-3" id="bands-charts-panel">
+                  <hr class="mt-3 mb-3">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <div class="small fw-semibold text-muted mb-1 text-center">Crew Distribution</div>
+                      <div class="chart-wrap" style="height:220px"><canvas id="chart-bands-crew"></canvas></div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="small fw-semibold text-muted mb-1 text-center">Amount by Band</div>
+                      <div class="chart-wrap" style="height:220px"><canvas id="chart-bands-amount"></canvas></div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="small fw-semibold text-muted mb-1 text-center">Total m&sup2; by Band</div>
+                      <div class="chart-wrap" style="height:220px"><canvas id="chart-bands-sqm"></canvas></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-7 d-none" id="base-curve-col">
+            <div class="card shadow-sm h-100">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
+                  <div class="section-header mb-0">Base Bonus Rate Curve</div>
+                  <button class="btn btn-sm btn-outline-secondary" id="btn-add-curve-point"><i class="bi bi-plus-lg me-1"></i>Add Point</button>
+                </div>
+                <p class="small text-muted mb-1">Rand per employee, by the average crew's m² achieved. Default points are
+                  derived from real STPTM9000 payroll data; edit, add, or remove rows to model a policy change — values in
+                  between are interpolated.</p>
+                <div class="table-wrap" style="max-height:320px">
+                  <table class="table table-sm table-bordered mb-0">
+                    <thead><tr><th>Avg Crew m&sup2;</th><th>Rate (R/employee)</th><th></th></tr></thead>
+                    <tbody id="tbl-curve-body"></tbody>
+                  </table>
+                </div>
+                <div class="small text-muted mt-2" id="curve-calc-hint"></div>
               </div>
             </div>
           </div>
@@ -362,9 +427,18 @@
           </div>
         </div>
 
-        <div class="p-3 rounded mb-3" style="background:var(--hg-light);border:1px solid var(--hg-border)">
-          <div class="small fw-semibold text-muted mb-1"><i class="bi bi-calendar-range me-1"></i>Projected over <span id="disp-periods-label">1</span> period(s)</div>
-          <div id="projected-body">—</div>
+        <div class="card shadow-sm mb-3">
+          <div class="card-body d-flex flex-wrap align-items-center gap-3">
+            <div>
+              <label class="form-label-sm mb-0">Periods (for comparison)</label>
+              <input type="number" class="form-control form-control-sm" id="inp-results-periods" min="1" step="1" style="width:100px">
+            </div>
+            <div class="small text-muted" id="results-periods-hint">
+              This scenario's Total Bonus as-is, ×1 — set this higher if it represents fewer real periods than
+              what you're comparing it against in Compare Scenarios (e.g. one manually-entered month standing in
+              for a real mine's 14-month range).
+            </div>
+          </div>
         </div>
 
         <div class="row g-3">
@@ -419,78 +493,37 @@
                 <label class="form-label-sm">Crew Type</label>
                 <select class="form-select form-select-sm" id="filter-crew-type"></select>
               </div>
-              <div class="col-md-2 col-6">
-                <button class="btn btn-sm btn-gold w-100" id="btn-apply-summary"><i class="bi bi-funnel-fill me-1"></i>Apply</button>
-              </div>
             </div>
-          </div>
-        </div>
-        <div class="row g-3 mb-3" id="summary-kpi-row">
-          <div class="col-sm-6 col-xl-2">
-            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Total m&sup2;</div>
-              <div class="kpi-val" id="kpi-sum-sqm">—</div>
-            </div></div>
-          </div>
-          <div class="col-sm-6 col-xl-2">
-            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Total Bonus</div>
-              <div class="kpi-val" id="kpi-sum-bonus">—</div>
-            </div></div>
-          </div>
-          <div class="col-sm-6 col-xl-2">
-            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Avg Crew Count</div>
-              <div class="kpi-val" id="kpi-avg-crew">—</div>
-            </div></div>
-          </div>
-          <div class="col-sm-6 col-xl-2">
-            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Avg m&sup2; / Crew</div>
-              <div class="kpi-val" id="kpi-avg-sqm-crew">—</div>
-            </div></div>
-          </div>
-          <div class="col-sm-6 col-xl-2">
-            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">R / m&sup2; (avg)</div>
-              <div class="kpi-val" id="kpi-avg-r-sqm">—</div>
-            </div></div>
-          </div>
-          <div class="col-sm-6 col-xl-2">
-            <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Periods</div>
-              <div class="kpi-val" id="kpi-period-count">—</div>
-            </div></div>
           </div>
         </div>
         <div class="card shadow-sm mb-3">
           <div class="card-body">
             <div class="section-header mb-2">Select Scenarios to Compare</div>
-            <div id="compare-picker" class="d-flex flex-wrap gap-3"></div>
-            <button class="btn btn-sm btn-gold mt-3" id="btn-run-compare"><i class="bi bi-play-fill me-1"></i>Compare</button>
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                      id="btn-scenario-dropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                <span id="scenario-dropdown-label">Select scenarios…</span>
+              </button>
+              <div class="dropdown-menu p-2" id="compare-picker" style="max-height:320px; overflow-y:auto; min-width:340px"></div>
+            </div>
+            <button class="btn btn-sm btn-gold mt-3 ms-2" id="btn-run-compare"><i class="bi bi-play-fill me-1"></i>Compare</button>
           </div>
         </div>
-        <div class="row g-3">
-          <div class="col-xl-7">
-            <div class="card shadow-sm h-100">
-              <div class="card-body">
-                <div class="section-header mb-3">Side-by-Side</div>
-                <div class="table-wrap">
-                  <table class="table table-sm table-bordered mb-0">
-                    <thead><tr><th>Scenario</th><th class="text-end">Base Bonus</th><th class="text-end">Total Bonus</th><th class="text-end">R/m&sup2;</th><th class="text-end">R/Employee</th></tr></thead>
-                    <tbody id="tbl-compare-body"><tr><td colspan="5" class="empty-state">Pick scenarios above and click Compare.</td></tr></tbody>
-                  </table>
-                </div>
-              </div>
+        <div class="card shadow-sm mb-3">
+          <div class="card-body">
+            <div class="section-header mb-3">Side-by-Side</div>
+            <div class="table-wrap">
+              <table class="table table-sm table-bordered mb-0">
+                <thead><tr><th>Scenario</th><th class="text-end">Base Bonus</th><th class="text-end">Total Bonus</th><th class="text-end">R/m&sup2;</th><th class="text-end">R/Employee</th></tr></thead>
+                <tbody id="tbl-compare-body"><tr><td colspan="5" class="empty-state">Pick scenarios above and click Compare.</td></tr></tbody>
+              </table>
             </div>
           </div>
-          <div class="col-xl-5">
-            <div class="card shadow-sm h-100">
-              <div class="card-body">
-                <div class="section-header mb-3">Total Bonus by Scenario</div>
-                <div class="chart-wrap"><canvas id="chart-compare"></canvas></div>
-              </div>
-            </div>
+        </div>
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="section-header mb-3">Total Bonus by Scenario</div>
+            <div class="chart-wrap"><canvas id="chart-compare"></canvas></div>
           </div>
         </div>
       </div>
@@ -529,10 +562,9 @@
     };
     const PARAM_NAME_PRESETS = [
       'Safety Bonus', 'Netting', 'Sweepings Penalty', 'Stoping-Width Factor', 'Dip Factor',
-      'Steep Stope Factor', 'Physical Condition Bonus', 'Trigger Bonus', 'AWOP Penalty',
-      'Section 54 Penalty', 'Safety Representative Bonus', 'Quality Drilling Bonus',
+      'Steep Stope Factor', 'Physical Condition Bonus', 'Trigger Bonus', 'Safety Trigger Bonus',
+      'AWOP Penalty', 'Section 54 Penalty', 'Safety Representative Bonus', 'Quality Drilling Bonus',
     ];
-    const CUSTOM_NAME = '__custom__';
     const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     function fmtPeriod(p) {
       if (!p) return '';
@@ -552,6 +584,10 @@
     let currentId = null;
     let compositionChart = null;
     let compareChart = null;
+    let bandsCrewChart = null;
+    let bandsAmountChart = null;
+    let bandsSqmChart = null;
+    let bandsChartsVisible = false;
 
     const $ = (sel, root) => (root || document).querySelector(sel);
     const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -563,6 +599,32 @@
     function fmtNum(v, dp) {
       if (v === null || v === undefined || isNaN(v)) return '—';
       return Number(v).toLocaleString('en-ZA', { maximumFractionDigits: dp === undefined ? 2 : dp });
+    }
+
+    // These fields are type="text" (not type="number") specifically so they can
+    // show thousands-separated, locale-formatted numbers (e.g. "8 849 227") while
+    // still being editable — a native number input can't display grouping
+    // separators or a currency-style format at all. formatForField renders the
+    // display string; parseFieldNumber reverses it back to a plain float before
+    // anything gets sent to the API.
+    const WHOLE_NUMBER_FIELDS = new Set([
+      'total_sqm', 'crew_count', 'threshold', 'actual_total_bonus',
+      'safety_incidents', 'quality_blast_count', 'awop_count',
+    ]);
+    // threshold_bonus is now a Rand RATE (e.g. R143.87/m²), not a lump-sum
+    // amount — rounding it to a whole number the way lump-sum Rand fields are
+    // rounded would silently truncate the precision that actually matters here.
+    function formatForField(field, v) {
+      if (v === null || v === undefined || v === '' || isNaN(v)) return '';
+      const dp = WHOLE_NUMBER_FIELDS.has(field) ? 0 : 2;
+      return Number(v).toLocaleString('en-ZA', { maximumFractionDigits: dp });
+    }
+    function parseFieldNumber(str) {
+      if (str === null || str === undefined) return null;
+      const cleaned = String(str).replace(/[\s ]/g, '').replace(',', '.');
+      if (cleaned === '') return null;
+      const n = Number(cleaned);
+      return isNaN(n) ? null : n;
     }
 
     async function api(url, opts) {
@@ -580,23 +642,61 @@
       sel.innerHTML = '';
       const templates = schemes.filter(s => s.is_template);
       const scenarios = schemes.filter(s => !s.is_template);
-      if (templates.length) {
-        const og = document.createElement('optgroup');
-        og.label = 'Section Templates (read-only)';
-        templates.forEach(s => og.appendChild(new Option(s.name, s.id)));
-        sel.appendChild(og);
-      }
-      const og2 = document.createElement('optgroup');
-      og2.label = 'Your Scenarios';
-      if (!scenarios.length) {
-        const opt = new Option('— none yet, duplicate a template or create blank —', '');
-        opt.disabled = true;
-        og2.appendChild(opt);
-      }
-      scenarios.forEach(s => og2.appendChild(new Option(s.name, s.id)));
-      sel.appendChild(og2);
 
-      const targetId = selectId || (scenarios[0] && scenarios[0].id) || (templates[0] && templates[0].id);
+      // Doornkop's 3 real gang types (Stope Breaking/Cleaning/Afternoon Shift)
+      // are stored as separate sibling schemes sharing one sibling_group — list
+      // only one representative per group here; switching between the actual
+      // siblings (and a Combined view) happens via the Mining Type toggle once
+      // that one is selected, not by picking a different top-level scenario.
+      const groupPrimary = new Map();
+      scenarios.forEach(s => {
+        if (!s.sibling_group) return;
+        const existing = groupPrimary.get(s.sibling_group);
+        if (!existing || (s.gang_type === 'STOPE BREAKING' && existing.gang_type !== 'STOPE BREAKING')) {
+          groupPrimary.set(s.sibling_group, s);
+        }
+      });
+      const seenGroups = new Set();
+      const finalScenarios = [];
+      scenarios.forEach(s => {
+        if (!s.sibling_group) { finalScenarios.push(s); return; }
+        if (seenGroups.has(s.sibling_group)) return;
+        seenGroups.add(s.sibling_group);
+        finalScenarios.push(groupPrimary.get(s.sibling_group));
+      });
+
+      if (!finalScenarios.length) {
+        const opt = new Option('— none yet, create one from the New Scenario menu —', '');
+        opt.disabled = true;
+        sel.appendChild(opt);
+      }
+      finalScenarios.forEach(s => sel.appendChild(new Option(s.name, s.id)));
+
+      // Templates aren't selectable in the main picker — start a new scenario
+      // "From Template" via the New Scenario dropdown instead, which clones
+      // straight into an editable scenario in one step.
+      const menu = $('#new-scheme-menu');
+      $$('.new-scheme-template-item', menu).forEach(el => el.closest('li').remove());
+      templates.forEach(t => {
+        const li = document.createElement('li');
+        li.innerHTML = `<a class="dropdown-item new-scheme-template-item" href="#" data-id="${t.id}">${t.name}</a>`;
+        menu.appendChild(li);
+      });
+      $$('.new-scheme-template-item', menu).forEach(el => {
+        el.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const tplId = el.dataset.id;
+          const tpl = templates.find(t => String(t.id) === tplId);
+          const name = prompt('Name for the new scenario:', tpl ? tpl.name : 'New Scenario');
+          if (!name) return;
+          const created = await api('/api/schemes/' + tplId + '/clone', {
+            method: 'POST', body: JSON.stringify({ name }),
+          });
+          await loadSchemeList(created.id);
+        });
+      });
+
+      const targetId = selectId || (finalScenarios[0] && finalScenarios[0].id);
       if (targetId) {
         // Don't set sel.value here — selectScheme() sets it once its data has actually
         // loaded, so the dropdown's name and the rendered page change together instead
@@ -626,7 +726,98 @@
       $('#disp-period-range').textContent = current.scheme.period_from
         ? fmtPeriod(current.scheme.period_from) + ' – ' + fmtPeriod(current.scheme.period_to)
         : '—';
+      renderMiningTypeBar();
       renderAll();
+    }
+
+    // ── Mining Type toggle (gang_type siblings sharing sibling_group) ────────
+    // A Doornkop scenario imported per real gang type (Stope Breaking/Cleaning/
+    // Afternoon Shift) is stored as separate sibling schemes — each keeps its
+    // own Base Bonus Basis/Parameters (different gang types genuinely have
+    // different applicable ones, e.g. Afternoon Shift has no Quality Drilling
+    // because real Driller Bonus is 0 for it). "Combined" sums their Results
+    // rather than being a real fourth scheme.
+    let combinedMode = false;
+    let combinedData = null;
+    const GANG_TYPE_LABELS = {
+      'STOPE BREAKING': 'Stope Breaking', 'STOPE CLEANING': 'Stope Cleaning', 'AFTERNOONSHIFT': 'Afternoon Shift',
+    };
+    function siblingSchemes() {
+      const grp = current.scheme.sibling_group;
+      if (!grp) return [];
+      return schemes.filter(s => s.sibling_group === grp);
+    }
+    function renderMiningTypeBar() {
+      const sibs = siblingSchemes();
+      const bar = $('#mining-type-bar');
+      if (sibs.length < 2) {
+        bar.classList.add('d-none'); bar.classList.remove('d-flex');
+        combinedMode = false;
+        return;
+      }
+      bar.classList.remove('d-none'); bar.classList.add('d-flex');
+      const group = $('#mining-type-group');
+      group.innerHTML = '';
+      sibs.forEach(s => {
+        const id = 'mtype-' + s.id;
+        const wrap = document.createElement('div');
+        wrap.className = 'form-check form-check-inline mb-0';
+        wrap.innerHTML = `<input class="form-check-input" type="checkbox" id="${id}" ${!combinedMode && s.id === currentId ? 'checked' : ''}>
+                           <label class="form-check-label small" for="${id}">${GANG_TYPE_LABELS[s.gang_type] || s.gang_type || s.name}</label>`;
+        wrap.querySelector('input').addEventListener('click', (e) => {
+          e.preventDefault(); // single-select — a click here always lands on this one, never toggles off
+          combinedMode = false;
+          selectScheme(s.id);
+        });
+        group.appendChild(wrap);
+      });
+      const combinedId = 'mtype-combined';
+      const combinedWrap = document.createElement('div');
+      combinedWrap.className = 'form-check form-check-inline mb-0';
+      combinedWrap.innerHTML = `<input class="form-check-input" type="checkbox" id="${combinedId}" ${combinedMode ? 'checked' : ''}>
+                                 <label class="form-check-label small" for="${combinedId}">Combined (All ${sibs.length})</label>`;
+      combinedWrap.querySelector('input').addEventListener('click', async (e) => {
+        e.preventDefault();
+        combinedMode = true;
+        await loadCombined();
+        renderMiningTypeBar();
+        renderResults();
+      });
+      group.appendChild(combinedWrap);
+      $('#mining-type-hint').textContent = combinedMode
+        ? 'Results below are summed across all ' + sibs.length + ' gang types (each at its own most recent period) — Manual Inputs/Base Bonus/Parameters still show "' + (GANG_TYPE_LABELS[current.scheme.gang_type] || current.scheme.gang_type) + '" only.'
+        : '';
+    }
+    async function loadCombined() {
+      const sibs = siblingSchemes();
+      const states = await Promise.all(sibs.map(s => api('/api/schemes/' + s.id)));
+      combinedData = states.map(st => ({ scheme: st.scheme, computed: st.computed }));
+    }
+    function computeCombinedResults(list) {
+      if (!list || !list.length) return null;
+      const base_bonus = list.reduce((s, x) => s + (x.computed.base_bonus || 0), 0);
+      const paramNames = [];
+      list.forEach(x => x.computed.parameters.forEach(p => { if (!paramNames.includes(p.name)) paramNames.push(p.name); }));
+      const parameters = paramNames.map(name => {
+        const amount = list.reduce((s, x) => {
+          const match = x.computed.parameters.find(p => p.name === name);
+          return s + (match && match.enabled ? match.amount : 0);
+        }, 0);
+        const anyMatch = list.map(x => x.computed.parameters.find(p => p.name === name)).find(p => p);
+        return { name, amount, enabled: !!(anyMatch && anyMatch.enabled), basis: anyMatch ? anyMatch.basis : 'pct_base' };
+      });
+      const total_bonus = list.reduce((s, x) => s + (x.computed.total_bonus || 0), 0);
+      const totalSqm = list.reduce((s, x) => s + (x.computed.inputs_echo.total_sqm || 0), 0);
+      const totalLabour = list.reduce((s, x) => s + (x.computed.inputs_echo.total_labor || 0), 0);
+      const actualTotal = list.reduce((s, x) => s + (Number(x.computed.actual_total_bonus) || 0), 0);
+      return {
+        basis: 'combined', base_bonus, parameters, total_bonus,
+        r_per_sqm: totalSqm ? total_bonus / totalSqm : 0,
+        r_per_man: totalLabour ? total_bonus / totalLabour : 0,
+        actual_total_bonus: actualTotal || null,
+        actual_r_per_sqm: (actualTotal && totalSqm) ? actualTotal / totalSqm : null,
+        delta_vs_actual: actualTotal ? total_bonus - actualTotal : null,
+      };
     }
 
     $('#sel-scheme').addEventListener('change', e => selectScheme(e.target.value));
@@ -641,7 +832,8 @@
       });
     });
 
-    $('#btn-new-scheme').addEventListener('click', async () => {
+    $('#btn-new-scheme').addEventListener('click', async (e) => {
+      e.preventDefault();
       const name = prompt('Name for the new blank scenario:');
       if (!name) return;
       const created = await api('/api/schemes', { method: 'POST', body: JSON.stringify({ name }) });
@@ -739,12 +931,48 @@
       };
     }
 
+    // Results (Base Bonus / Total Bonus / Parameter Breakdown) default to whichever
+    // single period is "active" server-side — fine normally, but when a multi-month
+    // range is selected (isRangeAggregateMode), that single-period figure isn't what
+    // should be compared against Comparison Baseline's combined-range actual. This
+    // sums each in-range period's own calculate() result (server attaches `computed`
+    // to every period, see _compute_full_state) the same way Manual Inputs already
+    // sums real production/reference-metric totals across the range.
+    function computeAggregateResults(periods) {
+      const withComputed = periods.filter(p => p.computed);
+      if (!withComputed.length) return null;
+      const base_bonus = withComputed.reduce((s, p) => s + (p.computed.base_bonus || 0), 0);
+      const paramIds = [];
+      withComputed[0].computed.parameters.forEach(p => paramIds.push(p.id));
+      const parameters = paramIds.map(id => {
+        const template = withComputed[0].computed.parameters.find(p => p.id === id);
+        const amount = withComputed.reduce((s, p) => {
+          const match = p.computed.parameters.find(x => x.id === id);
+          return s + (match ? match.amount : 0);
+        }, 0);
+        return { ...template, amount };
+      });
+      const otherTotal = parameters.reduce((s, p) => p.enabled ? s + p.amount : s, 0);
+      const total_bonus = base_bonus + otherTotal;
+      const totalSqm = withComputed.reduce((s, p) => s + (Number(p.total_sqm) || 0), 0);
+      const totalLabour = withComputed.reduce((s, p) => s + (Number(p.crew_count) || 0) * (Number(p.people_per_crew) || 0), 0);
+      const r_per_sqm = totalSqm ? total_bonus / totalSqm : 0;
+      const r_per_man = totalLabour ? total_bonus / totalLabour : 0;
+      const actualAgg = computeAggregatePeriod(withComputed);
+      return {
+        basis: withComputed[0].computed.basis,
+        base_bonus, parameters, total_bonus, r_per_sqm, r_per_man,
+        actual_total_bonus: actualAgg.actual_total_bonus,
+        actual_r_per_sqm: actualAgg.actual_r_per_sqm,
+        delta_vs_actual: actualAgg.actual_total_bonus != null ? total_bonus - actualAgg.actual_total_bonus : null,
+      };
+    }
+
     // Non-Doornkop scenarios have no real per-month data source, so there's nothing to
     // pick — they always have exactly one server-managed period (see
     // storage/schemes.py _ensure_default_period) and Manual Inputs is just always
-    // shown/editable. Projecting across multiple periods is what the "Periods
-    // (annualisation)" multiplier on the Base Bonus tab is for. Only Doornkop-derived
-    // scenarios get the Period card at all, for the STPTM9000 import range picker.
+    // shown/editable. Only Doornkop-derived scenarios get the Period card at all,
+    // for the STPTM9000 import range picker.
     function renderPeriodPicker() {
       const doornkopMode = isDoornkopMode();
       $('#period-card').classList.toggle('d-none', !doornkopMode);
@@ -883,7 +1111,17 @@
     function renderInputs() {
       const aggregateMode = isRangeAggregateMode();
       const period = aggregateMode ? computeAggregatePeriod(currentRangePeriods()) : activePeriod();
-      const readOnly = aggregateMode || !!current.scheme.is_template;
+      // Editable even while showing a combined range total. A field here shows a
+      // SUM across many periods, but there's only one period to write to
+      // (activePeriod()) — so a plain overwrite (previously: save the typed value
+      // as-is) corrupted data the moment the displayed number didn't match any
+      // single period's own value (confirmed: one edit on a 209,290 combined
+      // total once turned a period's own figure into 3.75 million). The change
+      // handler below fixes this by saving a DELTA instead of the typed value:
+      // (new displayed total − old displayed total) is added to activePeriod()'s
+      // own existing figure, so editing the combined view nudges the real month
+      // by the same amount rather than overwriting it with the whole sum.
+      const readOnly = !!current.scheme.is_template;
       const crew = refMetricCrewCount();
 
       $('#badge-range-mode').classList.toggle('d-none', !aggregateMode);
@@ -894,7 +1132,8 @@
         if (REF_METRIC_FIELDS.includes(f) && refMetricsMode === 'per_crew' && v !== null && v !== undefined && crew) {
           v = Math.round((v / crew) * 100) / 100;
         }
-        el.value = v === null || v === undefined ? '' : v;
+        el.value = formatForField(f, v);
+        el.dataset.combinedRaw = (aggregateMode && v !== null && v !== undefined) ? v : '';
         el.disabled = readOnly;
       });
 
@@ -922,10 +1161,18 @@
         const period = activePeriod();
         if (!period) return; // no period selected yet — fields should be hidden anyway
         const field = el.dataset.field;
-        let val = el.value === '' ? null : Number(el.value);
+        let val = parseFieldNumber(el.value);
         if (REF_METRIC_FIELDS.includes(field) && refMetricsMode === 'per_crew' && val !== null) {
           const crew = refMetricCrewCount();
           if (crew) val = val * crew;
+        }
+        // Editing a combined-range display: apply the CHANGE as a delta on top
+        // of activePeriod()'s own existing value, rather than overwriting it
+        // with the full (much larger) combined total — see renderInputs().
+        if (isRangeAggregateMode() && val !== null) {
+          const oldCombined = el.dataset.combinedRaw === '' ? 0 : Number(el.dataset.combinedRaw);
+          const delta = val - oldCombined;
+          val = (Number(period[field]) || 0) + delta;
         }
         current = await api('/api/periods/' + period.id, {
           method: 'PUT', body: JSON.stringify({ [field]: val }),
@@ -938,12 +1185,54 @@
       const cfg = current.base_cfg;
       $('#basis-sqm').checked = cfg.basis === 'sqm';
       $('#basis-efficiency').checked = cfg.basis === 'efficiency';
+      $('#basis-curve').checked = cfg.basis === 'curve';
       $$('.base-field').forEach(el => {
         const f = el.dataset.field;
-        el.value = cfg[f] === null || cfg[f] === undefined ? '' : cfg[f];
+        const raw = cfg[f];
+        el.value = el.type === 'number' ? (raw === null || raw === undefined ? '' : raw) : formatForField(f, raw);
       });
       $('#chk-use-bands').checked = !!cfg.use_bands;
-      $('#disp-achieved-pct').textContent = fmtNum(current.computed.achieved_pct, 1) + '%';
+
+      const isCurve = cfg.basis === 'curve';
+      $('#base-threshold-fields').classList.toggle('d-none', isCurve);
+      $('#base-curve-hint-field').classList.toggle('d-none', !isCurve);
+      $('#base-bands-col').classList.toggle('d-none', isCurve);
+      $('#base-curve-col').classList.toggle('d-none', !isCurve);
+      if (isCurve) {
+        renderCurvePoints();
+        return;
+      }
+
+      const isManRate = cfg.basis === 'efficiency';
+      $('#lbl-base-rate').textContent = isManRate ? 'Rate (R per Employee)' : 'Rate (R per m²)';
+      if (cfg.use_bands) {
+        $('#base-rate-hint').textContent = 'Achievement Bands is on — Base Bonus is the sum of each band\'s Rate × Payout% × Achievement% × that band\'s own Labour (100% Achievement = matching the section\'s own average). See the Achievement Bands card for the live per-band amounts.';
+        return;
+      }
+      // This hint must track the SAME scope the Results tab is showing — a
+      // combined multi-period range there, or just the one active period —
+      // otherwise "Base Bonus" shows two different, unexplained numbers on
+      // two tabs (confirmed real confusion: this tab showed one period's
+      // R5.27M while Results showed the 14-period range's R84.0M, both
+      // labelled identically "Base Bonus" with no indication they differed
+      // in scope).
+      const aggregateMode = isRangeAggregateMode();
+      const metricLabel = isManRate ? 'Total Labour' : 'Total m²';
+      let metricVal, baseBonusVal, scopeNote;
+      if (aggregateMode) {
+        const periods = currentRangePeriods();
+        const totalSqm = periods.reduce((s, p) => s + (Number(p.total_sqm) || 0), 0);
+        const totalLabour = periods.reduce((s, p) => s + (Number(p.crew_count) || 0) * (Number(p.people_per_crew) || 0), 0);
+        metricVal = isManRate ? totalLabour : totalSqm;
+        baseBonusVal = (Number(cfg.threshold_bonus) || 0) * metricVal;
+        scopeNote = ` (combined range — ${periods.length} period(s), matching the Results tab)`;
+      } else {
+        metricVal = isManRate ? current.computed.inputs_echo.total_labor : current.computed.inputs_echo.total_sqm;
+        baseBonusVal = current.computed.base_bonus;
+        scopeNote = ' (this period only)';
+      }
+      $('#base-rate-hint').textContent =
+        `Base Bonus = Rate × ${metricLabel} = R${fmtNum(cfg.threshold_bonus, 2)} × ${fmtNum(metricVal, 2)} = ${fmtMoney(baseBonusVal)}${scopeNote}`;
     }
 
     // Base Bonus / Bands / Parameters are scheme-wide, but re-fetching after an edit
@@ -963,8 +1252,9 @@
     $$('.base-field').forEach(el => {
       el.addEventListener('change', async () => {
         const field = el.dataset.field;
+        const parsed = parseFieldNumber(el.value);
         current = await api('/api/schemes/' + currentId + '/base-bonus' + periodQS(), {
-          method: 'PUT', body: JSON.stringify({ [field]: el.value === '' ? 0 : Number(el.value) }),
+          method: 'PUT', body: JSON.stringify({ [field]: parsed === null ? 0 : parsed }),
         });
         renderAll();
       });
@@ -1008,13 +1298,20 @@
       const tbody = $('#tbl-bands-body');
       tbody.innerHTML = '';
       const amountsById = {};
-      current.computed.bands.forEach(b => { amountsById[b.id] = b.amount; });
+      const sqmById = {};
+      current.computed.bands.forEach(b => { amountsById[b.id] = b.amount; sqmById[b.id] = b.sqm; });
       renderBandModeToggle();
+      renderBandsCrewWarning();
+      renderBandsSqmWarning();
+      renderBandsCharts();
+      renderBandsTotals();
       if (!current.bands.length) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No bands yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No bands yet.</td></tr>';
         return;
       }
       const crew = refMetricCrewCount();
+      const baseEfficiency = current.computed.inputs_echo.efficiency || 0;
+      const showEff = current.base_cfg.basis === 'sqm';
       current.bands.forEach(b => {
         let crewCountDisplay = b.crew_count;
         let crossRef = '';
@@ -1024,17 +1321,22 @@
         } else if (bandCountMode === 'count' && crew) {
           crossRef = `<div class="small text-muted mt-1">${fmtNum((b.crew_count / crew) * 100, 1)}% of crew</div>`;
         }
+        const achEff = showEff
+          ? `<div class="small text-muted mt-1">→ ${fmtNum((Number(b.achievement_pct) || 0) / 100 * baseEfficiency, 2)} m²/employee</div>` : '';
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><input type="number" class="form-control form-control-sm band-field" data-id="${b.id}" data-field="crew_count" value="${crewCountDisplay}" step="any">${crossRef}</td>
+          <td><input type="number" class="form-control form-control-sm band-field" data-id="${b.id}" data-field="achievement_pct" value="${b.achievement_pct}" step="any">${achEff}</td>
           <td><input type="number" class="form-control form-control-sm band-field" data-id="${b.id}" data-field="payout_pct" value="${b.payout_pct}" step="any"></td>
           <td class="text-end">${fmtMoney(amountsById[b.id])}</td>
+          <td class="text-end">${showEff ? fmtNum(sqmById[b.id], 2) : '—'}</td>
           <td><button class="btn btn-sm btn-outline-danger btn-del-band" data-id="${b.id}"><i class="bi bi-trash"></i></button></td>`;
         tbody.appendChild(tr);
       });
       $$('.band-field', tbody).forEach(el => {
         el.addEventListener('change', async () => {
           const field = el.dataset.field;
+          const bandId = Number(el.dataset.id);
           let val = Number(el.value);
           if (field === 'crew_count' && bandCountMode === 'pct') {
             const c = refMetricCrewCount();
@@ -1043,6 +1345,9 @@
           current = await api('/api/bands/' + el.dataset.id + periodQS(), {
             method: 'PUT', body: JSON.stringify({ [field]: val }),
           });
+          if (field === 'crew_count' || field === 'achievement_pct') {
+            await autoBalanceLowestPayoutBand(bandId);
+          }
           renderBands(); renderResults();
         });
       });
@@ -1050,16 +1355,280 @@
         el.addEventListener('click', async () => {
           current = await api('/api/bands/' + el.dataset.id + '?scheme_id=' + currentId +
             (current.active_period_id ? '&period_id=' + current.active_period_id : ''), { method: 'DELETE' });
+          await autoBalanceLowestPayoutBand(null);
           renderBands(); renderResults();
         });
       });
     }
 
-    $('#btn-add-band').addEventListener('click', async () => {
+    function renderBandsTotals() {
+      const foot = $('#tbl-bands-foot');
+      if (!current.bands.length) {
+        foot.innerHTML = '';
+        return;
+      }
+      const totalCrew = current.bands.reduce((s, b) => s + (Number(b.crew_count) || 0), 0);
+      const totalAmount = current.computed.bands.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      const totalSqmBands = current.computed.bands_sqm_total || 0;
+      const showEff = current.base_cfg.basis === 'sqm';
+      const crew = refMetricCrewCount();
+      const targetSqm = current.computed.inputs_echo.total_sqm;
+
+      let crewDisplay = totalCrew;
+      let crewCross = '';
+      if (bandCountMode === 'pct' && crew) {
+        crewDisplay = Math.round((totalCrew / crew) * 10000) / 100;
+        crewCross = `<div class="small text-muted mt-1">${fmtNum(totalCrew, 1)} of ${fmtNum(crew, 0)} crews</div>`;
+      } else if (crew) {
+        crewCross = `<div class="small text-muted mt-1">${fmtNum((totalCrew / crew) * 100, 1)}% of ${fmtNum(crew, 0)} crews</div>`;
+      }
+      const sqmCross = (showEff && targetSqm)
+        ? `<div class="small text-muted mt-1">of ${fmtNum(targetSqm, 2)} achieved</div>` : '';
+
+      foot.innerHTML = `<tr class="fw-semibold">
+        <td><strong>Total: </strong>${fmtNum(crewDisplay, 2)}${crewCross}</td>
+        <td class="text-muted">—</td>
+        <td class="text-muted">—</td>
+        <td class="text-end">${fmtMoney(totalAmount)}</td>
+        <td class="text-end">${showEff ? fmtNum(totalSqmBands, 2) : '—'}${sqmCross}</td>
+        <td></td>
+      </tr>`;
+    }
+
+    // Achievement Bands' Crew Count/Achievement% jointly imply how many m²
+    // and how many crews the bands account for — the "remainder" is
+    // whatever's left after every OTHER band's own claim, computed so that
+    // adding it back in makes both totals land exactly on Production &
+    // Labour's own Crew Count / Total m². Derivation: a band's own m² =
+    // Total m² x (Achievement% ÷ 100) x (its Crew Count ÷ section Crew
+    // Count) — Labour per Crew cancels out, so this only needs Crew Count
+    // and Achievement%, not people_per_crew/efficiency directly.
+    function computeRemainder(excludeBandId) {
+      const totalCrew = refMetricCrewCount() || 0;
+      const totalSqm = current.computed.inputs_echo.total_sqm || 0;
+      const others = current.bands.filter(b => b.id !== excludeBandId);
+      const otherCrewSum = others.reduce((s, b) => s + (Number(b.crew_count) || 0), 0);
+      const otherSqmFraction = totalCrew
+        ? others.reduce((s, b) => s + ((Number(b.achievement_pct) || 0) / 100) * ((Number(b.crew_count) || 0) / totalCrew), 0)
+        : 0;
+      const remainderCrew = Math.max(totalCrew - otherCrewSum, 0);
+      let remainderAch = 0;
+      if (remainderCrew > 0 && totalCrew > 0) {
+        const remainderSqmFraction = Math.max(1 - otherSqmFraction, 0);
+        remainderAch = remainderSqmFraction * (totalCrew / remainderCrew) * 100;
+      }
+      return { crew_count: remainderCrew, achievement_pct: Math.round(remainderAch * 100) / 100 };
+    }
+
+    function findLowestPayoutBand() {
+      if (!current.bands.length) return null;
+      return current.bands.reduce((min, b) =>
+        (Number(b.payout_pct) < Number(min.payout_pct) ? b : min), current.bands[0]);
+    }
+
+    // Runs after any OTHER band's Crew Count/Achievement% changes — keeps
+    // the lowest-Payout% band (the "didn't achieve the bonus" remainder) an
+    // accurate live total of whatever's left, so it never needs manual
+    // upkeep and the section's totals never silently drift past Manual
+    // Inputs. Editing the remainder band itself is left alone — that's the
+    // user taking direct control of it, not something to fight.
+    async function autoBalanceLowestPayoutBand(editedBandId) {
+      const target = findLowestPayoutBand();
+      if (!target || target.id === editedBandId) return;
+      const remainder = computeRemainder(target.id);
+      current = await api('/api/bands/' + target.id + periodQS(), {
+        method: 'PUT',
+        body: JSON.stringify({ crew_count: remainder.crew_count, achievement_pct: remainder.achievement_pct }),
+      });
+    }
+
+    $('#btn-add-remaining-band').addEventListener('click', async () => {
+      const remainder = computeRemainder(null);
+      if (remainder.crew_count <= 0) {
+        alert('No crews remain — the existing bands already cover the full Crew Count from Production & Labour.');
+        return;
+      }
       current = await api('/api/schemes/' + currentId + '/bands' + periodQS(), {
-        method: 'POST', body: JSON.stringify({ crew_count: 1, payout_pct: 100 }),
+        method: 'POST',
+        body: JSON.stringify({ crew_count: remainder.crew_count, achievement_pct: remainder.achievement_pct, payout_pct: 0 }),
       });
       renderBands(); renderResults();
+    });
+
+    // Labels a band by its position + Payout%, since bands have no name of
+    // their own — used in warning messages so "reduce X" points at something
+    // findable in the table.
+    function bandLabel(b) {
+      const idx = current.bands.findIndex(x => x.id === b.id) + 1;
+      return `Band ${idx} (${fmtNum(b.payout_pct, 0)}% payout)`;
+    }
+
+    function renderBandsCrewWarning() {
+      const box = $('#bands-crew-warning');
+      const c = current.computed;
+      if (!c.bands_crew_exceeds_total) {
+        box.classList.add('d-none');
+        box.innerHTML = '';
+        return;
+      }
+      const claimed = c.bands_crew_total;
+      const target = refMetricCrewCount();
+      const excess = claimed - target;
+      const lowest = findLowestPayoutBand();
+      const isPct = bandCountMode === 'pct' && target;
+      const claimedDisp = isPct ? `${fmtNum(claimed / target * 100, 1)}% of crew` : `${fmtNum(claimed, 2)} crews`;
+      const excessDisp = isPct ? `${fmtNum(excess / target * 100, 1)}%` : `${fmtNum(excess, 2)} crews`;
+      const targetDisp = isPct ? '100% of crew' : `${fmtNum(target, 2)} crews`;
+      box.classList.remove('d-none');
+      box.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i>Achievement Bands claim ` +
+        `${claimedDisp} between them, ${excessDisp} more than the ${targetDisp} in Production &amp; Labour — ` +
+        `that's physically more crews than the section has. ` +
+        (lowest
+          ? `<button type="button" class="btn btn-sm btn-outline-danger ms-1" id="btn-fix-bands-crew">` +
+            `Reduce ${bandLabel(lowest)} by ${excessDisp}?</button>`
+          : '');
+      const btn = $('#btn-fix-bands-crew');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          const newCount = Math.max((Number(lowest.crew_count) || 0) - excess, 0);
+          current = await api('/api/bands/' + lowest.id + periodQS(), {
+            method: 'PUT', body: JSON.stringify({ crew_count: newCount }),
+          });
+          renderBands(); renderResults();
+        });
+      }
+    }
+
+    function renderBandsSqmWarning() {
+      const box = $('#bands-sqm-warning');
+      const c = current.computed;
+      if (!c.bands_sqm_exceeds_total) {
+        box.classList.add('d-none');
+        box.innerHTML = '';
+        return;
+      }
+      const claimed = c.bands_sqm_total;
+      const achieved = c.inputs_echo.total_sqm;
+      box.classList.remove('d-none');
+      box.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i>Achievement Bands claim ` +
+        `${fmtNum(claimed, 2)} m² between them (from Achievement% × Crew Count), more than the ` +
+        `${fmtNum(achieved, 2)} m² actually achieved in Production &amp; Labour — Base Bonus is being paid ` +
+        `on more production than was recorded. ` +
+        `<button type="button" class="btn btn-sm btn-outline-danger ms-1" id="btn-fix-bands-sqm">` +
+        `Set Total m² to ${fmtNum(claimed, 2)}?</button>`;
+      $('#btn-fix-bands-sqm').addEventListener('click', async () => {
+        const period = activePeriod();
+        if (!period) return;
+        current = await api('/api/periods/' + period.id, {
+          method: 'PUT', body: JSON.stringify({ total_sqm: claimed }),
+        });
+        renderInputs(); renderResults(); renderBands();
+      });
+    }
+
+    $('#btn-toggle-bands-charts').addEventListener('click', () => {
+      bandsChartsVisible = !bandsChartsVisible;
+      $('#bands-charts-panel').classList.toggle('d-none', !bandsChartsVisible);
+      $('#btn-toggle-bands-charts').classList.toggle('active', bandsChartsVisible);
+      renderBandsCharts();
+    });
+
+    function renderBandsCharts() {
+      if (!bandsChartsVisible) return;
+      const bands = current.bands || [];
+      const computedById = {};
+      (current.computed.bands || []).forEach(b => { computedById[b.id] = b; });
+      const showEff = current.base_cfg.basis === 'sqm';
+      const labels = bands.map((b, i) => {
+        const ach = computedById[b.id] ? computedById[b.id].achievement_pct : b.achievement_pct;
+        return `Band ${i + 1} (${fmtNum(ach, 0)}% ach)`;
+      });
+      const crewCounts = bands.map(b => Number(b.crew_count) || 0);
+      const amounts = bands.map(b => (computedById[b.id] ? computedById[b.id].amount : 0));
+      const sqms = bands.map(b => (computedById[b.id] ? computedById[b.id].sqm : 0));
+
+      if (bandsCrewChart) bandsCrewChart.destroy();
+      bandsCrewChart = new Chart($('#chart-bands-crew'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: crewCounts, backgroundColor: palette(labels.length) }] },
+        options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } } } },
+      });
+
+      if (bandsAmountChart) bandsAmountChart.destroy();
+      bandsAmountChart = new Chart($('#chart-bands-amount'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data: amounts, backgroundColor: palette(labels.length) }] },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { callback: v => fmtNum(v, 0) } } },
+        },
+      });
+
+      if (bandsSqmChart) bandsSqmChart.destroy();
+      bandsSqmChart = new Chart($('#chart-bands-sqm'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data: showEff ? sqms : sqms.map(() => 0), backgroundColor: palette(labels.length) }] },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: { x: { ticks: { font: { size: 9 } } }, y: { ticks: { callback: v => fmtNum(v, 0) } } },
+        },
+      });
+    }
+
+    $('#btn-add-band').addEventListener('click', async () => {
+      current = await api('/api/schemes/' + currentId + '/bands' + periodQS(), {
+        method: 'POST', body: JSON.stringify({ crew_count: 1, payout_pct: 100, achievement_pct: 100 }),
+      });
+      const newBand = current.bands[current.bands.length - 1];
+      await autoBalanceLowestPayoutBand(newBand ? newBand.id : null);
+      renderBands(); renderResults();
+    });
+
+    function renderCurvePoints() {
+      const tbody = $('#tbl-curve-body');
+      tbody.innerHTML = '';
+      if (!current.curve_points.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No curve points yet — add one to start defining Base Bonus by average crew m².</td></tr>';
+      } else {
+        current.curve_points.forEach(cp => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><input type="number" class="form-control form-control-sm curve-field" data-id="${cp.id}" data-field="sqm" value="${cp.sqm}" step="any"></td>
+            <td><input type="number" class="form-control form-control-sm curve-field" data-id="${cp.id}" data-field="rate" value="${cp.rate}" step="any"></td>
+            <td><button class="btn btn-sm btn-outline-danger btn-del-curve-point" data-id="${cp.id}"><i class="bi bi-trash"></i></button></td>`;
+          tbody.appendChild(tr);
+        });
+      }
+      $$('.curve-field', tbody).forEach(el => {
+        el.addEventListener('change', async () => {
+          const field = el.dataset.field;
+          current = await api('/api/curve-points/' + el.dataset.id + periodQS(), {
+            method: 'PUT', body: JSON.stringify({ [field]: Number(el.value) }),
+          });
+          renderCurvePoints(); renderBase(); renderResults();
+        });
+      });
+      $$('.btn-del-curve-point', tbody).forEach(el => {
+        el.addEventListener('click', async () => {
+          current = await api('/api/curve-points/' + el.dataset.id + '?scheme_id=' + currentId +
+            (current.active_period_id ? '&period_id=' + current.active_period_id : ''), { method: 'DELETE' });
+          renderCurvePoints(); renderBase(); renderResults();
+        });
+      });
+      // Live "what does the current crew average look up to" hint — same axis
+      // Base Bonus itself uses (Total m² / Crew Count).
+      const c = current.computed;
+      const avgCrewSqm = c.inputs_echo.crew_count ? c.inputs_echo.total_sqm / c.inputs_echo.crew_count : 0;
+      $('#curve-calc-hint').textContent = current.base_cfg.basis === 'curve'
+        ? `This period's average crew: ${fmtNum(avgCrewSqm, 1)} m² → looked-up rate R${fmtNum(c.curve_rate_per_employee, 2)}/employee × ${fmtNum(c.inputs_echo.total_labor, 1)} Total Labour = ${fmtMoney(c.base_bonus)}`
+        : '';
+    }
+
+    $('#btn-add-curve-point').addEventListener('click', async () => {
+      current = await api('/api/schemes/' + currentId + '/curve-points' + periodQS(), {
+        method: 'POST', body: JSON.stringify({ sqm: 300, rate: 0 }),
+      });
+      renderCurvePoints(); renderResults();
     });
 
     function metricOptions(selected) {
@@ -1070,13 +1639,6 @@
       return Object.keys(BASIS_LABELS).map(k =>
         `<option value="${k}" ${k === selected ? 'selected' : ''}>${BASIS_LABELS[k]}</option>`).join('');
     }
-    function paramNameOptions(selected) {
-      const isPreset = PARAM_NAME_PRESETS.includes(selected);
-      return PARAM_NAME_PRESETS.map(n =>
-        `<option value="${n}" ${n === selected ? 'selected' : ''}>${n}</option>`).join('')
-        + `<option value="${CUSTOM_NAME}" ${!isPreset ? 'selected' : ''}>Custom / Other…</option>`;
-    }
-
     function renderQualModeToggle() {
       $('#qual-mode-count').checked = paramQualMode === 'count';
       $('#qual-mode-pct').checked = paramQualMode === 'pct';
@@ -1098,6 +1660,95 @@
         renderParams();
       });
     });
+
+    // "Basis Pool" — which other parameters' amounts (plus Base Bonus, optionally)
+    // this pct_base parameter's % is computed against, instead of always the whole
+    // Base Bonus. Real policies stack this way — e.g. a Safety Trigger Bonus paid
+    // as 50% of the Trigger Bonus specifically, or a Netting Bonus paid on (Base +
+    // Safety) "after Safety" — see engine/bonus.py's basis_param_ids docs.
+    function basisPoolHtml(p, bandsTotalCrews, computedById) {
+      if (p.basis !== 'pct_base') return '';
+      // basis_includes_base comes from SQLite as a real bool now (see schemes.py
+      // _param_row), but this stays defensive against 0/false either way rather
+      // than a bare !== false, which incorrectly treats the number 0 as "true"
+      // (0 !== false in JS — different types never match a strict comparison) —
+      // that exact bug once left the checkbox showing checked while the engine
+      // had already excluded Base Bonus from the pool, computing 0.
+      const includesBase = p.basis_includes_base !== false && p.basis_includes_base !== 0;
+      const refIds = new Set((p.basis_param_ids || []).map(Number));
+      const others = current.parameters.filter(op => op.id !== p.id);
+      const poolAmount = (includesBase ? (current.computed.base_bonus || 0) : 0)
+        + others.filter(op => refIds.has(op.id))
+                .reduce((s, op) => s + ((computedById[op.id] && computedById[op.id].amount) || 0), 0);
+      // The pool→amount preview below is a simplification (pool * value%) that
+      // doesn't account for Qualifying Crews/gate_metric proration — when either
+      // is set, show the engine's own computed amount instead so the hint never
+      // disagrees with the actual Parameter Breakdown row.
+      const cpSelf = computedById[p.id];
+      const hasProration = (p.qualifying_crews !== null && p.qualifying_crews !== undefined) || !!p.gate_metric;
+      const payoutAmount = (hasProration && cpSelf) ? cpSelf.amount : poolAmount * (Number(p.value) || 0) / 100;
+      // Two parameters sharing a name (e.g. two "Safety Bonus" cards) would
+      // otherwise show two identical, indistinguishable checkboxes here — append
+      // the parameter's position in the Order sequence (current.parameters is
+      // already server-sorted by sort_order, then id) whenever a name collides
+      // with another parameter — e.g. two "Safety Bonus" cards disambiguate as
+      // "Safety Bonus (order 1)" / "Safety Bonus (order 2)", using the same
+      // user-editable Order number shown on each card, not an opaque database id.
+      const nameCounts = {};
+      current.parameters.forEach(op => { nameCounts[op.name] = (nameCounts[op.name] || 0) + 1; });
+      const orderIndex = op => current.parameters.findIndex(x => x.id === op.id) + 1;
+      const dispName = op => nameCounts[op.name] > 1 ? `${op.name} (order ${orderIndex(op)})` : op.name;
+      const optionsHtml = others.length ? others.map(op => `
+        <div class="form-check">
+          <input class="form-check-input basis-pool-ref" type="checkbox" id="basis-ref-${p.id}-${op.id}"
+                 data-id="${p.id}" data-ref-id="${op.id}" ${refIds.has(op.id) ? 'checked' : ''}>
+          <label class="form-check-label small" for="basis-ref-${p.id}-${op.id}">${dispName(op)}</label>
+        </div>`).join('') : '<div class="small text-muted">No other parameters to reference yet.</div>';
+      const cycleWarning = (cpSelf && cpSelf.circular_pool)
+        ? `<div class="small text-danger mt-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Circular reference: this parameter's Basis Pool eventually loops back to itself through another parameter's Basis Pool. The amount below is resolved arbitrarily by parameter order, not a real rate — break the cycle by unchecking one side.</div>`
+        : '';
+      return `
+        <div class="col-12 basis-pool-field">
+          <label class="form-label-sm">Basis Pool <span class="metric-note">(what this % is applied to)</span></label>
+          <div class="form-check form-check-sm mb-1">
+            <input class="form-check-input basis-includes-base" type="checkbox" id="basis-incl-base-${p.id}"
+                   data-id="${p.id}" ${includesBase ? 'checked' : ''}>
+            <label class="form-check-label small" for="basis-incl-base-${p.id}">Include Base Bonus</label>
+          </div>
+          <div class="ps-1">${optionsHtml}</div>
+          <div class="small text-muted mt-1">Pool = ${fmtMoney(poolAmount)}${hasProration ? ' (prorated by Qualifying Crews above)' : ''} → this parameter pays ${fmtMoney(payoutAmount)}</div>
+          ${cycleWarning}
+        </div>`;
+    }
+
+    // A flat "% of Total Bonus" (pct_total) applies to the WHOLE running total —
+    // fine for something universal, but wrong for a per-employee policy like AWOP
+    // (real AWOP forfeits the specific absent employees' own bonus, not everyone's).
+    // Prorating by a chosen metric ÷ Total Labour scales the % down to just the
+    // affected share instead — see engine/bonus.py's pct_total gate_metric docs.
+    function pctTotalProrateHtml(p, computedById) {
+      if (p.basis !== 'pct_total') return '';
+      const mode = p.gate_metric ? 'auto' : 'all';
+      const cp = computedById[p.id];
+      const totalLabour = (current.computed && current.computed.inputs_echo.total_labor) || 0;
+      let hint = 'Pick the metric whose share of Total Labour should be affected (e.g. AWOP Count).';
+      if (mode === 'auto' && cp && cp.gate_metric_qty !== null && cp.gate_metric_qty !== undefined) {
+        const pct = totalLabour ? Math.min(cp.gate_metric_qty / totalLabour, 1) * 100 : 0;
+        hint = `${fmtNum(cp.gate_metric_qty, 1)} of ${fmtNum(totalLabour, 1)} Total Labour (${fmtNum(pct, 1)}%) affected → ${fmtNum(p.value, 1)}% applies to just that share.`;
+      }
+      return `
+        <div class="col-12 prorate-field">
+          <label class="form-label-sm">Prorate By <span class="metric-note">(default: applies to the whole Total Bonus)</span></label>
+          <select class="form-select form-select-sm param-field prorate-mode-select mb-1" data-id="${p.id}" data-field="__prorate_mode">
+            <option value="all" ${mode === 'all' ? 'selected' : ''}>Applies to whole Total Bonus</option>
+            <option value="auto" ${mode === 'auto' ? 'selected' : ''}>Auto: scale by a metric ÷ Total Labour</option>
+          </select>
+          <div class="prorate-auto-sub" style="${mode === 'auto' ? '' : 'display:none'}">
+            <select class="form-select form-select-sm param-field" data-id="${p.id}" data-field="gate_metric">${metricOptions(p.gate_metric)}</select>
+            <div class="small text-muted mt-1">${hint}</div>
+          </div>
+        </div>`;
+    }
 
     function renderParams() {
       const container = $('#params-container');
@@ -1136,11 +1787,18 @@
           <div class="card shadow-sm param-card ${disabledCls}">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                <div class="d-flex flex-column gap-1" style="max-width:70%">
-                  <select class="form-select form-select-sm fw-semibold param-field" data-id="${p.id}" data-field="name">${paramNameOptions(p.name)}</select>
-                  <input type="text" class="form-control form-control-sm param-field param-name-custom" data-id="${p.id}" data-field="name" placeholder="Custom parameter name" value="${PARAM_NAME_PRESETS.includes(p.name) ? '' : p.name}" style="${PARAM_NAME_PRESETS.includes(p.name) ? 'display:none' : ''}">
+                <div class="d-flex flex-column gap-1" style="max-width:60%">
+                  <input type="text" class="form-control form-control-sm fw-semibold param-field" data-id="${p.id}" data-field="name" value="${p.name}" placeholder="Parameter name">
+                  <select class="form-select form-select-sm param-name-preset" data-id="${p.id}">
+                    <option value="" selected>Quick-fill from a preset name…</option>
+                    ${PARAM_NAME_PRESETS.map(n => `<option value="${n}">${n}</option>`).join('')}
+                  </select>
                 </div>
-                <div class="d-flex align-items-center gap-2">
+                <div class="d-flex align-items-end gap-2">
+                  <div class="d-flex flex-column" title="Also controls calculation order for Basis Pool references — lower Order resolves first, so if two parameters reference each other, the lower one wins that circular tie.">
+                    <label class="form-label-sm mb-0" style="font-size:.65rem">Order</label>
+                    <input type="number" class="form-control form-control-sm param-field" style="width:56px" data-id="${p.id}" data-field="sort_order" value="${p.sort_order || 0}" step="1">
+                  </div>
                   <div class="form-check form-switch mb-0">
                     <input class="form-check-input param-field" type="checkbox" data-id="${p.id}" data-field="enabled" ${p.enabled ? 'checked' : ''}>
                   </div>
@@ -1178,6 +1836,8 @@
                     <div class="small text-muted mt-1">${gateHint}</div>
                   </div>
                 </div>
+                ${pctTotalProrateHtml(p, computedById)}
+                ${basisPoolHtml(p, bandsTotalCrews, computedById)}
                 <div class="col-12">
                   <div class="metric-note">${p.notes || ''}</div>
                 </div>
@@ -1200,8 +1860,15 @@
             renderParams(); renderResults();
             return;
           }
+          if (field === '__prorate_mode') {
+            const body = val === 'auto' ? { gate_metric: Object.keys(METRIC_LABELS)[0] } : { gate_metric: null };
+            current = await api('/api/parameters/' + id + periodQS(), { method: 'PUT', body: JSON.stringify(body) });
+            renderParams(); renderResults();
+            return;
+          }
           if (field === 'enabled') val = el.checked;
           if (field === 'value') val = Number(val);
+          if (field === 'sort_order') val = el.value === '' ? 0 : Number(val);
           if (field === 'qualifying_crews') {
             val = el.value === '' ? null : Number(el.value);
             if (val !== null && paramQualMode === 'pct') {
@@ -1209,15 +1876,24 @@
               if (c) val = (val / 100) * c;
             }
           }
-          if (field === 'name' && val === CUSTOM_NAME) {
-            const custom = $(`.param-name-custom[data-id="${id}"]`, container);
-            custom.style.display = '';
-            custom.value = '';
-            custom.focus();
-            return;
-          }
           if (field === 'name') val = val.trim() || 'Parameter';
           current = await api('/api/parameters/' + id + periodQS(), { method: 'PUT', body: JSON.stringify({ [field]: val }) });
+          renderParams(); renderResults();
+        });
+      });
+      // Preset dropdown is a quick-fill helper, not itself the source of truth —
+      // picking one just types that name into the always-editable text field next
+      // to it (which the user can then keep customising, e.g. "Safety Bonus (on
+      // Trigger)"), and saves via the same path as typing it in directly.
+      $$('.param-name-preset', container).forEach(el => {
+        el.addEventListener('change', async () => {
+          if (!el.value) return;
+          const id = el.dataset.id;
+          const nameInput = $(`input[data-field="name"][data-id="${id}"]`, container);
+          nameInput.value = el.value;
+          current = await api('/api/parameters/' + id + periodQS(), {
+            method: 'PUT', body: JSON.stringify({ name: el.value }),
+          });
           renderParams(); renderResults();
         });
       });
@@ -1225,6 +1901,27 @@
         el.addEventListener('click', async () => {
           current = await api('/api/parameters/' + el.dataset.id + '?scheme_id=' + currentId +
             (current.active_period_id ? '&period_id=' + current.active_period_id : ''), { method: 'DELETE' });
+          renderParams(); renderResults();
+        });
+      });
+      $$('.basis-includes-base', container).forEach(el => {
+        el.addEventListener('change', async () => {
+          current = await api('/api/parameters/' + el.dataset.id + periodQS(), {
+            method: 'PUT', body: JSON.stringify({ basis_includes_base: el.checked }),
+          });
+          renderParams(); renderResults();
+        });
+      });
+      $$('.basis-pool-ref', container).forEach(el => {
+        el.addEventListener('change', async () => {
+          const id = el.dataset.id;
+          const p = current.parameters.find(x => String(x.id) === String(id));
+          const refIds = new Set((p.basis_param_ids || []).map(Number));
+          const refId = Number(el.dataset.refId);
+          if (el.checked) refIds.add(refId); else refIds.delete(refId);
+          current = await api('/api/parameters/' + id + periodQS(), {
+            method: 'PUT', body: JSON.stringify({ basis_param_ids: Array.from(refIds) }),
+          });
           renderParams(); renderResults();
         });
       });
@@ -1238,11 +1935,15 @@
     });
 
     function renderResults() {
-      const c = current.computed;
+      const aggregateMode = isRangeAggregateMode();
+      const c = combinedMode ? computeCombinedResults(combinedData)
+        : aggregateMode ? computeAggregateResults(currentRangePeriods()) : current.computed;
+      if (!c) return;
       $('#kpi-base-bonus').textContent = fmtMoney(c.base_bonus);
       $('#kpi-total-bonus').textContent = fmtMoney(c.total_bonus);
       $('#kpi-r-sqm').textContent = 'R ' + fmtNum(c.r_per_sqm, 2);
       $('#kpi-r-man').textContent = 'R ' + fmtNum(c.r_per_man, 2);
+      renderResultsPeriods(c);
 
       if (c.delta_vs_actual !== null && c.delta_vs_actual !== undefined) {
         const pos = c.delta_vs_actual >= 0;
@@ -1259,11 +1960,6 @@
         $('#kpi-r-sqm-delta').textContent = 'No actual entered';
       }
 
-      $('#disp-periods-label').textContent = c.periods;
-      $('#projected-body').innerHTML =
-        `Projected Base Bonus: <strong>${fmtMoney(c.projected_base_bonus)}</strong> &nbsp;|&nbsp; ` +
-        `Projected Total Bonus: <strong>${fmtMoney(c.projected_total_bonus)}</strong>`;
-
       const tbody = $('#tbl-results-body');
       tbody.innerHTML = '';
       const row = (label, basisLabel, amount) => {
@@ -1271,7 +1967,9 @@
         tr.innerHTML = `<td>${label}</td><td>${basisLabel}</td><td class="text-end">${fmtMoney(amount)}</td>`;
         tbody.appendChild(tr);
       };
-      row('Base Bonus', c.basis === 'sqm' ? 'Total m² basis' : 'Efficiency basis', c.base_bonus);
+      const baseBasisLabel = c.basis === 'sqm' ? 'Rand per m²'
+        : c.basis === 'combined' ? 'Sum across gang types' : 'Rand per Employee (R/Man)';
+      row('Base Bonus', baseBasisLabel, c.base_bonus);
       c.parameters.forEach(p => {
         if (!p.enabled) return;
         row(p.name, BASIS_LABELS[p.basis] || p.basis, p.amount);
@@ -1288,6 +1986,27 @@
         options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } },
       });
     }
+
+    // Purely a display multiplier for cross-scenario comparison (Compare Scenarios
+    // applies the same one server-side) — never baked into base_bonus/total_bonus
+    // themselves, so it can't double up with range-aggregation the way the old
+    // "Periods (annualisation)" field on the Base Bonus tab once did.
+    function renderResultsPeriods(c) {
+      const periods = Number(current.base_cfg.periods) || 1;
+      $('#inp-results-periods').value = periods;
+      const scaledBase = (c.base_bonus || 0) * periods;
+      const scaledTotal = (c.total_bonus || 0) * periods;
+      $('#results-periods-hint').textContent = periods === 1
+        ? `This scenario's Total Bonus as-is, ×1 — set this higher if it represents fewer real periods than what you're comparing it against in Compare Scenarios (e.g. one manually-entered month standing in for a real mine's 14-month range).`
+        : `×${periods}: Base Bonus ${fmtMoney(scaledBase)}, Total Bonus ${fmtMoney(scaledTotal)} — this is what Compare Scenarios will show for this scenario.`;
+    }
+    $('#inp-results-periods').addEventListener('change', async () => {
+      const val = Math.max(1, Math.round(Number($('#inp-results-periods').value) || 1));
+      current = await api('/api/schemes/' + currentId + '/base-bonus' + periodQS(), {
+        method: 'PUT', body: JSON.stringify({ periods: val }),
+      });
+      renderResults();
+    });
 
     function palette(n) {
       const base = ['#D4A017', '#1A2744', '#2C3E6B', '#8a93a3', '#1a7f37', '#c0392b', '#6f42c1', '#0d6efd'];
@@ -1367,84 +2086,54 @@
       populateFilterSelect($('#filter-section'), sections, 'All Sections');
       populateFilterSelect($('#filter-crew-type'), crewTypes, 'All Types');
 
-      const filtered = getFilteredSchemes();
+      const filtered = getFilteredSchemes({ excludeTemplates: true });
+      const previouslyChecked = new Set($$('#compare-picker input:checked').map(el => el.value));
 
       const el = $('#compare-picker');
       el.innerHTML = '';
       if (!filtered.length) {
-        el.innerHTML = '<div class="empty-state">No scenarios match these filters.</div>';
+        el.innerHTML = '<div class="empty-state px-2">No scenarios match these filters.</div>';
+        updateScenarioDropdownLabel();
         return;
       }
       filtered.forEach(s => {
         const id = 'cmp-' + s.id;
         const wrap = document.createElement('div');
         wrap.className = 'form-check';
-        wrap.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="${id}">
-                           <label class="form-check-label small" for="${id}">${s.name}${s.is_template ? ' <span class="text-muted">(template)</span>' : ''}</label>`;
+        wrap.innerHTML = `<input class="form-check-input" type="checkbox" value="${s.id}" id="${id}" ${previouslyChecked.has(String(s.id)) ? 'checked' : ''}>
+                           <label class="form-check-label small" for="${id}">${s.name}</label>`;
         el.appendChild(wrap);
       });
+      updateScenarioDropdownLabel();
     }
 
-    // Aggregate summary tiles — Total m² / Total Bonus are summed (they're genuinely
-    // additive across periods); Crew Count, m²/Crew and R/m² are per-period rates that
-    // don't sum meaningfully, so those are averaged across the matching periods instead.
-    // Templates are excluded — they're placeholder starting points, not real period data.
-    // A scenario can hold several periods, so this pulls each matching scheme's own
-    // periods (clamped to the Period From/To filter) rather than one snapshot per scheme.
-    async function applySummary() {
-      const filtered = getFilteredSchemes({ excludeTemplates: true });
-      const tiles = {
-        sqm: $('#kpi-sum-sqm'), bonus: $('#kpi-sum-bonus'), crew: $('#kpi-avg-crew'),
-        sqmCrew: $('#kpi-avg-sqm-crew'), rSqm: $('#kpi-avg-r-sqm'), periods: $('#kpi-period-count'),
-      };
-      if (!filtered.length) {
-        Object.values(tiles).forEach(el => el.textContent = '—');
-        return;
-      }
-      const fFrom = $('#filter-period-from').value;
-      const fTo = $('#filter-period-to').value;
-      const qsParams = [];
-      if (fFrom) qsParams.push('from=' + fFrom);
-      if (fTo) qsParams.push('to=' + fTo);
-      const qs = qsParams.length ? '?' + qsParams.join('&') : '';
-      const perScheme = await Promise.all(
-        filtered.map(s => api('/api/schemes/' + s.id + '/period-summary' + qs))
-      );
-      const entries = perScheme.flat();
-      let sumSqm = 0, sumBonus = 0, sumCrew = 0, sqmPerCrewTotal = 0, sqmPerCrewN = 0, rSqmTotal = 0, rSqmN = 0;
-      entries.forEach(e => {
-        const c = e.computed;
-        const sqm = c.inputs_echo.total_sqm, crew = c.inputs_echo.crew_count;
-        sumSqm += sqm;
-        sumBonus += c.total_bonus;
-        sumCrew += crew;
-        if (crew) { sqmPerCrewTotal += sqm / crew; sqmPerCrewN++; }
-        if (sqm) { rSqmTotal += c.r_per_sqm; rSqmN++; }
-      });
-      if (!entries.length) {
-        Object.values(tiles).forEach(el => el.textContent = '—');
-        tiles.periods.textContent = '0';
-        return;
-      }
-      tiles.sqm.textContent = fmtNum(sumSqm, 0) + ' m²';
-      tiles.bonus.textContent = fmtMoney(sumBonus);
-      tiles.crew.textContent = fmtNum(sumCrew / entries.length, 1);
-      tiles.sqmCrew.textContent = sqmPerCrewN ? fmtNum(sqmPerCrewTotal / sqmPerCrewN, 1) + ' m²' : '—';
-      tiles.rSqm.textContent = rSqmN ? 'R ' + fmtNum(rSqmTotal / rSqmN, 2) : '—';
-      tiles.periods.textContent = String(entries.length);
+    function updateScenarioDropdownLabel() {
+      const checked = $$('#compare-picker input:checked');
+      $('#scenario-dropdown-label').textContent = checked.length
+        ? `${checked.length} scenario${checked.length === 1 ? '' : 's'} selected`
+        : 'Select scenarios…';
     }
-    $('#btn-apply-summary').addEventListener('click', applySummary);
+    $('#compare-picker').addEventListener('change', updateScenarioDropdownLabel);
 
     $('#btn-run-compare').addEventListener('click', async () => {
       const ids = $$('#compare-picker input:checked').map(el => el.value);
       if (!ids.length) return;
-      const results = await api('/api/compare?ids=' + ids.join(','));
+      const fFrom = $('#filter-period-from').value;
+      const fTo = $('#filter-period-to').value;
+      const qsParams = ['ids=' + ids.join(',')];
+      if (fFrom) qsParams.push('from=' + fFrom);
+      if (fTo) qsParams.push('to=' + fTo);
+      const results = await api('/api/compare?' + qsParams.join('&'));
       const tbody = $('#tbl-compare-body');
       tbody.innerHTML = '';
       results.forEach(r => {
         const c = r.computed;
+        const periodsNote = c.periods_included === 1
+          ? `${c.periods_included} period${c.periods_multiplier > 1 ? ` × ${c.periods_multiplier}` : ''}`
+          : `${c.periods_included} periods${c.periods_multiplier > 1 ? ` × ${c.periods_multiplier}` : ''}`;
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${r.scheme.name}</td><td class="text-end">${fmtMoney(c.base_bonus)}</td>
+        tr.innerHTML = `<td>${r.scheme.name}<div class="small text-muted">${periodsNote}</div></td>
+                         <td class="text-end">${fmtMoney(c.base_bonus)}</td>
                          <td class="text-end">${fmtMoney(c.total_bonus)}</td>
                          <td class="text-end">R ${fmtNum(c.r_per_sqm, 2)}</td>
                          <td class="text-end">R ${fmtNum(c.r_per_man, 2)}</td>`;

@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS schemes (
     is_template INTEGER NOT NULL DEFAULT 0,
     template_key TEXT,
     template_note TEXT,
+    gang_type TEXT,
+    sibling_group TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -64,6 +66,9 @@ CREATE TABLE IF NOT EXISTS scheme_periods (
     stoping_width_cm REAL,
     quality_blast_count REAL,
     awop_count REAL,
+    break_bonus_total REAL,
+    safety_bonus_total REAL,
+    driller_bonus_total REAL,
     created_at TEXT NOT NULL,
     UNIQUE(scheme_id, period)
 );
@@ -83,10 +88,29 @@ CREATE TABLE IF NOT EXISTS crew_bands (
     scheme_id INTEGER NOT NULL REFERENCES schemes(id) ON DELETE CASCADE,
     crew_count REAL NOT NULL DEFAULT 0,
     payout_pct REAL NOT NULL DEFAULT 0,
+    achievement_pct REAL NOT NULL DEFAULT 100,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_crew_bands_scheme ON crew_bands(scheme_id);
+
+-- Base Bonus "Rate Curve": Rand-per-employee as a function of (crew m², crew
+-- labour size), editable points with interpolation between them (see
+-- engine.bonus's BASIS_CURVE) — the real Doornkop policy pays this way (a
+-- non-linear lookup matrix), not a flat Rand/m² rate; these points default to
+-- values empirically derived from real STPTM9000 paid bonuses, grouped by
+-- (m², labour), so they start close to reality and stay fully editable to
+-- model policy changes.
+CREATE TABLE IF NOT EXISTS base_bonus_curve_points (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scheme_id INTEGER NOT NULL REFERENCES schemes(id) ON DELETE CASCADE,
+    sqm REAL NOT NULL DEFAULT 0,
+    labour REAL NOT NULL DEFAULT 0,
+    rate REAL NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_base_bonus_curve_points_scheme ON base_bonus_curve_points(scheme_id);
 
 CREATE TABLE IF NOT EXISTS parameters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,6 +124,8 @@ CREATE TABLE IF NOT EXISTS parameters (
     sort_order INTEGER NOT NULL DEFAULT 0,
     qualifying_crews REAL,
     gate_metric TEXT,
+    basis_param_ids TEXT,
+    basis_includes_base INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_parameters_scheme ON parameters(scheme_id);
@@ -124,12 +150,18 @@ def _migrate(conn: sqlite3.Connection) -> None:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(crew_bands)")}
         if "gang_count" in cols and "crew_count" not in cols:
             conn.execute("ALTER TABLE crew_bands RENAME COLUMN gang_count TO crew_count")
+        if "achievement_pct" not in cols:
+            conn.execute("ALTER TABLE crew_bands ADD COLUMN achievement_pct REAL NOT NULL DEFAULT 100")
     if "parameters" in tables:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(parameters)")}
         if "qualifying_crews" not in cols:
             conn.execute("ALTER TABLE parameters ADD COLUMN qualifying_crews REAL")
         if "gate_metric" not in cols:
             conn.execute("ALTER TABLE parameters ADD COLUMN gate_metric TEXT")
+        if "basis_param_ids" not in cols:
+            conn.execute("ALTER TABLE parameters ADD COLUMN basis_param_ids TEXT")
+        if "basis_includes_base" not in cols:
+            conn.execute("ALTER TABLE parameters ADD COLUMN basis_includes_base INTEGER NOT NULL DEFAULT 1")
     if "schemes" in tables:
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(schemes)")}
         if "crew_type" not in cols:
@@ -138,6 +170,18 @@ def _migrate(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE schemes ADD COLUMN period_from TEXT")
         if "period_to" not in cols:
             conn.execute("ALTER TABLE schemes ADD COLUMN period_to TEXT")
+        if "gang_type" not in cols:
+            conn.execute("ALTER TABLE schemes ADD COLUMN gang_type TEXT")
+        if "sibling_group" not in cols:
+            conn.execute("ALTER TABLE schemes ADD COLUMN sibling_group TEXT")
+    if "scheme_periods" in tables:
+        cols = {r["name"] for r in conn.execute("PRAGMA table_info(scheme_periods)")}
+        if "break_bonus_total" not in cols:
+            conn.execute("ALTER TABLE scheme_periods ADD COLUMN break_bonus_total REAL")
+        if "safety_bonus_total" not in cols:
+            conn.execute("ALTER TABLE scheme_periods ADD COLUMN safety_bonus_total REAL")
+        if "driller_bonus_total" not in cols:
+            conn.execute("ALTER TABLE scheme_periods ADD COLUMN driller_bonus_total REAL")
     if "scheme_periods" not in tables and "scheme_inputs" in tables:
         conn.execute("""
             CREATE TABLE scheme_periods (
@@ -147,7 +191,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 total_sqm REAL, crew_count REAL, people_per_crew REAL,
                 actual_total_bonus REAL, actual_r_per_sqm REAL,
                 safety_incidents REAL, sweepings_distance_m REAL, stoping_width_cm REAL,
-                quality_blast_count REAL, awop_count REAL,
+                quality_blast_count REAL, awop_count REAL, break_bonus_total REAL,
+                safety_bonus_total REAL, driller_bonus_total REAL,
                 created_at TEXT NOT NULL,
                 UNIQUE(scheme_id, period)
             )

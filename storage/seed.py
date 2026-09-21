@@ -18,13 +18,43 @@ won't require a data wipe.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from . import schemes as store
 from .db import get_conn
 
+# Doornkop's Base Bonus Rate Curve (Rand/employee by average crew m² only —
+# deliberately a single axis, not a full m²-by-labour grid, so mine planners
+# can tune it by hand without wading through dozens of cells) — empirically
+# derived from real STPTM9000 GANGLINKEARN data (Dec 2024-May 2026, Stope
+# Breaking, BUSSUNIT=RE): grouped into 50 m² buckets (100-700), averaged,
+# gap-filled by linear interpolation, then uniformly scaled so that looking
+# it up against SECTION-level averages (this app's aggregate inputs — avg
+# crew m² x Total Labour) reproduces the real range total. Base Bonus itself
+# then interpolates this same handful of points against each period's own
+# avg crew m². See storage/doornkop_base_bonus_curve.json.
+_DOORNKOP_CURVE_PATH = Path(__file__).resolve().parent / "doornkop_base_bonus_curve.json"
 
-def _param(name, basis, value, linked_metric=None, notes=None, gate_metric=None):
+
+def _doornkop_curve_points() -> list[dict]:
+    with open(_DOORNKOP_CURVE_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _param(name, basis, value, linked_metric=None, notes=None, gate_metric=None,
+           basis_param_names=None, basis_includes_base=True):
+    """basis_param_names: names of OTHER parameters in this same template whose
+    amounts should be summed into this parameter's %-basis pool (in addition to
+    Base Bonus, unless basis_includes_base=False) — resolved to real ids in
+    ensure_templates() once every parameter in the template has been created.
+    Lets one parameter be "% of another parameter" or "% of Base + another
+    parameter", matching real policies that stack bonuses on top of each other
+    (e.g. Doornkop's Safety Trigger Bonus = 50% of Trigger Bonus specifically;
+    Phakisa/Tshepong's Netting Bonus = % of Base + Safety, "after Safety")."""
     return {"name": name, "enabled": True, "basis": basis, "value": value,
-            "linked_metric": linked_metric, "notes": notes, "gate_metric": gate_metric}
+            "linked_metric": linked_metric, "notes": notes, "gate_metric": gate_metric,
+            "basis_param_names": basis_param_names or [], "basis_includes_base": basis_includes_base}
 
 
 TEMPLATES = [
@@ -32,10 +62,20 @@ TEMPLATES = [
         "key": "doornkop",
         "name": "Doornkop — Stope Team & Miner Bonus",
         "section_label": "Doornkop",
-        "note": "RE_202410 / REV01, effective Nov 2024. Base bonus driven by m² achieved; "
-                "safety/width/trigger components layered on top.",
-        "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "note": "RE_202410 / REV01, effective Nov 2024. Base Bonus uses a Rate Curve (Base Bonus tab): "
+                "the real policy (confirmed from the actual signed policy PDF, section 4.3.1) pays Base "
+                "Bonus as a non-linear lookup by crew m² achieved and crew size — not a flat rate. The "
+                "policy's own matrix isn't digitally available (scanned document, full table \"available "
+                "at the Bonus Department\" only), so this is instead a small, editable (Avg Crew m² -> "
+                "Rate) curve derived empirically from real STPTM9000 GANGLINKEARN data (Dec 2024-May 2026, "
+                "Stope Breaking) and calibrated to reproduce the real Stope-Breaking total for that range. "
+                "Kept to one axis on purpose — a handful of rows to tune by hand rather than a full grid — "
+                "so it trades away separately modelling crew-size (labour count) effects in exchange for "
+                "being easy to manipulate. Fully editable — add, remove, or change points to model policy "
+                "changes.",
+        "base_cfg": {"basis": "curve", "threshold": 0, "threshold_bonus": 0, "periods": 1, "use_bands": 0},
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
+        "curve_points": _doornkop_curve_points(),
         "parameters": [
             _param("Safety Bonus", "pct_base", 50,
                    notes="Policy 4.2.1.1: 50% of base portion. 4.2.1.2: one safety incident or one loss-of-"
@@ -49,29 +89,53 @@ TEMPLATES = [
                    notes="Policy 4.5.1: 50% of base portion, earned when the average physical condition "
                          "percentage of crew workplaces (audited monthly by the Safety Department) is 95% "
                          "and above. That audit percentage isn't one of this tool's reference metrics — set "
-                         "this parameter's Value to 0 for a period where the 95% threshold wasn't met."),
+                         "this parameter's Value to 0 for a period where the 95% threshold wasn't met. Basis "
+                         "Pool includes Sweepings Penalty per 4.7.1.4 (see that parameter's notes).",
+                   basis_param_names=["Sweepings Penalty"]),
             _param("Sweepings Penalty", "pct_base", -25,
                    notes="Policy 4.7.1.1: panel not swept to within 9 m of the face at mid-month measuring: "
                          "-25%. 4.7.1.2: still not to standard (4.5 m) by month-end: a further -25% (-50% "
                          "combined). 4.7.1.4: this penalty applies to the base bonus before the other bonus "
-                         "metrics (Condition + Stope Width + Trigger) are calculated on it."),
+                         "metrics (Condition + Stope Width + Trigger) are calculated on it — modelled by "
+                         "giving each of those three parameters a Basis Pool of Base Bonus + this one's "
+                         "(negative) amount, so they're computed against the post-penalty base."),
             _param("Stoping Width Bonus", "pct_base", 50,
                    notes="Policy 4.4.1: 50% of base portion. 4.4.2: qualifies at stoping ≤120 cm, "
-                         "ledging ≤150 cm, wide raise ≤150 cm."),
+                         "ledging ≤150 cm, wide raise ≤150 cm. Basis Pool includes Sweepings Penalty per "
+                         "4.7.1.4 (see that parameter's notes).",
+                   basis_param_names=["Sweepings Penalty"]),
             _param("Trigger Bonus (Difficult Conditions)", "pct_base", 50,
-                   notes="Policy 4.6: 50% of the crew's production bonus (worked example sums Base + Stoping "
-                         "Width + Safety, not Physical Condition) once a crew exceeds a m² threshold: 350 m² "
-                         "stoping, 290 m² ledging, or 340 m² wide raise (170 m² before the policy's x2 wide-"
-                         "raise factor). This tool applies the % to the whole Base Bonus rather than that "
-                         "exact three-way subtotal, and doesn't yet model 4.6's separate 50%-of-Safety "
-                         "\"Safety Trigger Bonus\" line from the worked example in policy §12 — ask to have "
-                         "that modelled exactly if the difference matters for your scenario."),
-            _param("Quality Drilling (Driller)", "rand_per_unit", 80, "quality_blast_count",
-                   notes="Policy 4.10.4.1: R80 per quality blast shift for the driller (4.10.4.2: R20 for a "
-                         "non-driller, not modelled as a separate parameter here)."),
-            _param("AWOP Penalty", "pct_total", -50,
-                   notes="Policy 4.9.1: 1 AWOP = -50% of total bonus. 2 or more AWOP = -100% (edit the value "
-                         "to -100 to model that case)."),
+                   notes="Policy 4.6: 50% of the crew's production bonus once a crew exceeds a m² threshold: "
+                         "350 m² stoping, 290 m² ledging, or 340 m² wide raise (170 m² before the policy's x2 "
+                         "wide-raise factor). Basis Pool is set to Base Bonus + Sweepings Penalty + Stoping "
+                         "Width Bonus + Safety Bonus, matching the worked example's \"Base + Stoping Width + "
+                         "Safety\" subtotal (Physical Condition is deliberately excluded from this pool, per "
+                         "that same worked example) plus 4.7.1.4's sweepings-first sequencing. See also "
+                         "\"Safety Trigger Bonus\" below for policy §12's separate 50%-of-Safety line applied "
+                         "to this Trigger Bonus specifically, not to Base Bonus.",
+                   basis_param_names=["Sweepings Penalty", "Stoping Width Bonus", "Safety Bonus"]),
+            _param("Safety Trigger Bonus", "pct_base", 50,
+                   notes="Policy §12 worked example: once a crew earns the Trigger Bonus above, a further 50% "
+                         "of that Trigger Bonus amount specifically (not of Base Bonus) is added as a Safety "
+                         "Trigger Bonus. Basis Pool = Trigger Bonus only (Include Base Bonus is off). Disable "
+                         "this parameter if your version of the policy doesn't carry this line.",
+                   basis_param_names=["Trigger Bonus (Difficult Conditions)"], basis_includes_base=False),
+            _param("Quality Drilling (Driller)", "rand_per_unit", 664.20, "quality_blast_count",
+                   notes="Policy 4.10.4.1 states R80 per quality blast shift for the driller, but real "
+                         "STPTM9000 data (Dec 2024-May 2026, driller_bonus_total ÷ quality_blast_count) "
+                         "implies a remarkably consistent R613-R710/blast every single month — nowhere close "
+                         "to R80, and far too stable to be noise. Given this policy's Base Bonus matrix "
+                         "(§15/§16) is itself only available as a scanned, non-extractable document (see the "
+                         "Rate Curve note), R80 is treated as a likely transcription error and replaced with "
+                         "the real weighted-average rate (R664.20) — using actual paid amounts rather than a "
+                         "possibly-misread scan. Edit if the real R80 rate is confirmed from another source; "
+                         "4.10.4.2's R20 non-driller add-on still isn't modelled as a separate parameter."),
+            _param("AWOP Penalty", "pct_total", -50, gate_metric="awop_count",
+                   notes="Policy 4.9.1: 1 AWOP = -50% of total bonus, 2+ = -100% — but that's a real per-"
+                         "employee rule (each absent employee forfeits their own bonus), not a section-wide "
+                         "cut. Prorated by AWOP Count ÷ Total Labour, so the % only applies to the affected "
+                         "share of the workforce rather than everyone. Edit the value to -100 to model the "
+                         "2+ AWOP case for whichever share that applies to."),
         ],
     },
     {
@@ -80,7 +144,7 @@ TEMPLATES = [
         "section_label": "Joel",
         "note": "JC_202505_STOPE_REV02, read with Apr/Mar 2025 clarifications. Minimum crew size 12.",
         "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 25,
                    notes="+25% add-on to base. One LTI forfeits the whole safety portion; PIVOT must be >90%."),
@@ -99,7 +163,7 @@ TEMPLATES = [
         "section_label": "Kusasalethu",
         "note": "RE_202601_STP, Jan 2026. Entry level 50 m² for all reef types.",
         "base_cfg": {"basis": "sqm", "threshold": 50, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 25, notes="+25% add-on to base for zero accidents."),
             _param("Sweepings Bonus", "pct_base", 50,
@@ -116,7 +180,7 @@ TEMPLATES = [
         "section_label": "Masimong",
         "note": "FM_202508_STP_REV01, Aug 2025. Category-based production caps apply (e.g. Ledging/Basal 1,010 m², Drive 850 m²).",
         "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 25,
                    notes="+25% add-on. LOL/1 LTI removes it entirely; 1 dressing -50%, 2 dressings -100%."),
@@ -137,7 +201,7 @@ TEMPLATES = [
         "note": "MA_202507_STPTEAM_REV04, Jul 2025. Most extensive set of special mining-condition factors "
                 "of the compared mines (channel width, pillar, winze/down-dip, below-level).",
         "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 100,
                    notes="Safety = 100% of Breaking Bonus — the highest safety weighting of all compared mines. "
@@ -155,7 +219,7 @@ TEMPLATES = [
         "section_label": "Mponeng",
         "note": "WA_202604_STP, Apr 2026. Physical-condition gate can cut the whole bonus (see notes).",
         "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 25,
                    notes="+25% safety add-on. LTI removes it for the crew; a fatality forfeits the whole "
@@ -174,7 +238,7 @@ TEMPLATES = [
         "section_label": "Phakisa",
         "note": "JJ_202608_STPTEAM_REV04, 06 Aug 2026. Netting add-on of 6.6% is distinctive to this scheme.",
         "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 10,
                    notes="+10% of qualifying bonus — notably lower than the other compared mines."),
@@ -186,7 +250,9 @@ TEMPLATES = [
             _param("Quality Drilling", "rand_per_unit", 100, "quality_blast_count",
                    notes="R100 per qualifying quality blast, capped by measuring shifts (separate scheme)."),
             _param("Netting Bonus", "pct_base", 6.6,
-                   notes="Permanent netting, when pre-planned and approved: +6.6% of qualifying bonus after Safety."),
+                   notes="Permanent netting, when pre-planned and approved: +6.6% of qualifying bonus after "
+                         "Safety — Basis Pool is Base Bonus + Safety Bonus.",
+                   basis_param_names=["Safety Bonus"]),
             _param("AWOP Penalty", "pct_total", -50,
                    notes="1 AWOP = -50%. 2+ AWOP = -100%, calculated on total bonus including driller bonus."),
         ],
@@ -199,7 +265,7 @@ TEMPLATES = [
                 "%-based add-ons. Flagged inconsistency: intro states minimum 150/180 m², but §6.1.1 states "
                 "225 m²/crew — not resolved here, worth confirming with the Bonus Department.",
         "base_cfg": {"basis": "efficiency", "threshold": 16, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Miner Safety Bonus", "fixed", 2500,
                    notes="Fixed amount, payable only if no dressings/LTIs recorded for the crew."),
@@ -223,7 +289,7 @@ TEMPLATES = [
         "section_label": "Tshepong",
         "note": "JB_202603, Mar 2026. Netting add-on (20%) and miner cap (R150,000) are the highest among compared mines.",
         "base_cfg": {"basis": "sqm", "threshold": 300, "threshold_bonus": 100, "periods": 1, "use_bands": 1},
-        "bands": [{"crew_count": 10, "payout_pct": 100, "sort_order": 0}],
+        "bands": [{"crew_count": 10, "payout_pct": 100, "achievement_pct": 100, "sort_order": 0}],
         "parameters": [
             _param("Safety Bonus", "pct_base", 25,
                    notes="~+25% safety enhancement to base/qualifying bonus when no safety event applies."),
@@ -231,7 +297,9 @@ TEMPLATES = [
                    notes="Measuring-day sweepings failure = -50% TOTAL bonus."),
             _param("Netting Bonus", "pct_base", 20,
                    notes="Permanent netting: +20% of qualifying bonus after Safety, for authorised crews "
-                         "(dip ≥45° also gets +20% to m², not modelled separately here)."),
+                         "(dip ≥45° also gets +20% to m², not modelled separately here). Basis Pool is Base "
+                         "Bonus + Safety Bonus.",
+                   basis_param_names=["Safety Bonus"]),
             _param("Quality Drilling", "rand_per_unit", 100, "quality_blast_count",
                    notes="R100 per qualifying quality blast (separate scheme)."),
             _param("AWOP Penalty", "pct_total", -50,
@@ -277,5 +345,16 @@ def ensure_templates() -> None:
         store.update_base_cfg(scheme_id, tpl["base_cfg"])
         for b in tpl["bands"]:
             store.create_band(scheme_id, b)
-        for p in tpl["parameters"]:
-            store.create_parameter(scheme_id, p)
+        for cp in tpl.get("curve_points", []):
+            store.create_curve_point(scheme_id, cp)
+        created_params = [store.create_parameter(scheme_id, p) for p in tpl["parameters"]]
+        # basis_param_names references another parameter in this same template by
+        # name — resolve those to real ids now that every parameter has one, and
+        # write basis_param_ids back (basis_includes_base was already set at create
+        # time since it needs no resolution).
+        id_by_name = {row["name"]: row["id"] for row in created_params}
+        for spec, row in zip(tpl["parameters"], created_params):
+            names = spec.get("basis_param_names") or []
+            if names:
+                ids = [id_by_name[n] for n in names if n in id_by_name]
+                store.update_parameter(row["id"], {"basis_param_ids": ids})

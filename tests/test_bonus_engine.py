@@ -338,6 +338,25 @@ def test_pct_base_basis_pool_ignores_disabled_and_cyclic_references():
     assert by_name["Depends on Disabled"]["circular_pool"] is False
 
 
+def test_pct_base_basis_pool_reference_to_deleted_parameter_is_not_circular():
+    # id 999 doesn't exist in `parameters` at all (e.g. the referenced
+    # parameter was deleted after this one's Basis Pool was set up) — that's
+    # a dangling reference, not a cycle: it deterministically contributes 0
+    # and must NOT be flagged circular_pool, which would falsely tell the UI
+    # to show "this parameter's Basis Pool eventually loops back to itself".
+    inputs = {"total_sqm": 10, "crew_count": 10, "people_per_crew": 5}
+    base_cfg = {"basis": "sqm", "threshold": 100, "threshold_bonus": 10, "periods": 1, "use_bands": True}
+    bands = [{"id": 1, "crew_count": 10, "payout_pct": 100}]  # base_bonus = 100
+    parameters = [
+        {"id": 1, "name": "Depends on Deleted", "enabled": True, "basis": "pct_base", "value": 50,
+         "basis_param_ids": [999], "basis_includes_base": True},
+    ]
+    result = calculate(inputs, base_cfg, bands, parameters)
+    entry = result["parameters"][0]
+    assert entry["amount"] == 50  # 50% of (base 100 + missing ref's 0)
+    assert entry["circular_pool"] is False
+
+
 def test_pct_total_gate_metric_prorates_by_fraction_of_total_labour():
     # AWOP Penalty gated on awop_count: only the affected fraction of the
     # workforce should lose the %, not the whole section's bonus.

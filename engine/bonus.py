@@ -330,15 +330,22 @@ def calculate(inputs: dict, base_cfg: dict, bands: list[dict], parameters: list[
             entries_by_id[pid] = entry
 
     # Pass 2: iteratively resolve pct_base parameters whose basis_param_ids are
-    # all already resolved, until no more progress can be made (a cycle, or a
-    # reference to a pct_total/missing parameter, just leaves 0 for that ref).
+    # all already resolved, until no more progress can be made (a genuine cycle
+    # — two pct_base parameters that depend on each other). A dep pointing at
+    # anything OTHER than a still-pending pct_base parameter (a pct_total
+    # parameter, or a deleted/nonexistent one) is never circular and never
+    # blocks resolution — it deterministically contributes 0, exactly what
+    # _resolve_pct_base's own amounts_by_id.get(ref_id, 0.0) already falls
+    # back to, so there's nothing "arbitrary" about it and no reason to flag
+    # it as a cycle the way an actual mutual A-depends-on-B-depends-on-A does.
+    pending_ids = {p.get("id") for _, p, _ in pending_pct_base}
     progress = True
     while pending_pct_base and progress:
         progress = False
         still_pending = []
         for idx, p, entry in pending_pct_base:
             deps = entry["basis_param_ids"]
-            if all(d in amounts_by_id for d in deps):
+            if all(d not in pending_ids or d in amounts_by_id for d in deps):
                 enabled = entry["enabled"]
                 entry["amount"] = _resolve_pct_base(p, entry) if enabled else 0.0
                 amounts_by_id[p.get("id")] = entry["amount"]

@@ -1420,10 +1420,18 @@
       return { crew_count: remainderCrew, achievement_pct: Math.round(remainderAch * 100) / 100 };
     }
 
-    function findLowestPayoutBand() {
-      if (!current.bands.length) return null;
-      return current.bands.reduce((min, b) =>
-        (Number(b.payout_pct) < Number(min.payout_pct) ? b : min), current.bands[0]);
+    // excludeId: skip this band when picking the lowest — used when reacting
+    // to that band's own edit, so a payout% TIE between the just-edited band
+    // and the real remainder band can never cause the tie-break to land back
+    // on the one being edited (which would silently no-op the auto-balance
+    // below, since "target === the band you just changed" looks the same as
+    // "nothing to balance"). The plain warning-banner lookup passes nothing,
+    // since there it should always mean the true overall lowest, no exclusion.
+    function findLowestPayoutBand(excludeId) {
+      const candidates = excludeId == null ? current.bands : current.bands.filter(b => b.id !== excludeId);
+      if (!candidates.length) return null;
+      return candidates.reduce((min, b) =>
+        (Number(b.payout_pct) < Number(min.payout_pct) ? b : min), candidates[0]);
     }
 
     // Runs after any OTHER band's Crew Count/Achievement% changes — keeps
@@ -1433,8 +1441,8 @@
     // Inputs. Editing the remainder band itself is left alone — that's the
     // user taking direct control of it, not something to fight.
     async function autoBalanceLowestPayoutBand(editedBandId) {
-      const target = findLowestPayoutBand();
-      if (!target || target.id === editedBandId) return;
+      const target = findLowestPayoutBand(editedBandId);
+      if (!target) return;
       const remainder = computeRemainder(target.id);
       current = await api('/api/bands/' + target.id + periodQS(), {
         method: 'PUT',

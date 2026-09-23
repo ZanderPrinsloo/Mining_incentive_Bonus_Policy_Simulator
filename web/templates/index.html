@@ -636,20 +636,17 @@
 
     // ── Scheme picker ──────────────────────────────────────────────────────
 
-    async function loadSchemeList(selectId) {
-      schemes = await api('/api/schemes');
-      const sel = $('#sel-scheme');
-      sel.innerHTML = '';
-      const templates = schemes.filter(s => s.is_template);
-      const scenarios = schemes.filter(s => !s.is_template);
-
-      // Doornkop's 3 real gang types (Stope Breaking/Cleaning/Afternoon Shift)
-      // are stored as separate sibling schemes sharing one sibling_group — list
-      // only one representative per group here; switching between the actual
-      // siblings (and a Combined view) happens via the Mining Type toggle once
-      // that one is selected, not by picking a different top-level scenario.
+    // Doornkop's 3 real gang types (Stope Breaking/Cleaning/Afternoon Shift)
+    // are stored as separate sibling schemes sharing one sibling_group — every
+    // scenario picker in the app (the main one, and Compare Scenarios) lists
+    // only one representative per group, so a Doornkop scenario is always the
+    // same single pick everywhere; switching between the actual siblings (and
+    // a Combined view) happens via the Mining Type toggle once it's selected,
+    // never by picking a "different scenario" — Compare used to list all 3 as
+    // separate comparable rows, inconsistent with the main picker doing this.
+    function dedupeSiblings(list) {
       const groupPrimary = new Map();
-      scenarios.forEach(s => {
+      list.forEach(s => {
         if (!s.sibling_group) return;
         const existing = groupPrimary.get(s.sibling_group);
         if (!existing || (s.gang_type === 'STOPE BREAKING' && existing.gang_type !== 'STOPE BREAKING')) {
@@ -657,13 +654,23 @@
         }
       });
       const seenGroups = new Set();
-      const finalScenarios = [];
-      scenarios.forEach(s => {
-        if (!s.sibling_group) { finalScenarios.push(s); return; }
+      const out = [];
+      list.forEach(s => {
+        if (!s.sibling_group) { out.push(s); return; }
         if (seenGroups.has(s.sibling_group)) return;
         seenGroups.add(s.sibling_group);
-        finalScenarios.push(groupPrimary.get(s.sibling_group));
+        out.push(groupPrimary.get(s.sibling_group));
       });
+      return out;
+    }
+
+    async function loadSchemeList(selectId) {
+      schemes = await api('/api/schemes');
+      const sel = $('#sel-scheme');
+      sel.innerHTML = '';
+      const templates = schemes.filter(s => s.is_template);
+      const scenarios = schemes.filter(s => !s.is_template);
+      const finalScenarios = dedupeSiblings(scenarios);
 
       if (!finalScenarios.length) {
         const opt = new Option('— none yet, create one from the New Scenario menu —', '');
@@ -2094,7 +2101,7 @@
       populateFilterSelect($('#filter-section'), sections, 'All Sections');
       populateFilterSelect($('#filter-crew-type'), crewTypes, 'All Types');
 
-      const filtered = getFilteredSchemes({ excludeTemplates: true });
+      const filtered = dedupeSiblings(getFilteredSchemes({ excludeTemplates: true }));
       const previouslyChecked = new Set($$('#compare-picker input:checked').map(el => el.value));
 
       const el = $('#compare-picker');

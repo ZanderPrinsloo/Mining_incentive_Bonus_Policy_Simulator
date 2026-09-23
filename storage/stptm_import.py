@@ -93,13 +93,20 @@ except ImportError as e:  # pragma: no cover - exercised only when pyodbc isn't 
     pyodbc = None
     _PYODBC_IMPORT_ERROR = e
 
-# All three are set per-deployment via .env (see .env.example) — this file has no
-# hardcoded server, so the same code runs unchanged wherever it's deployed. Blank
-# by default: is_available() treats a missing SERVER as "feature not configured
-# here" rather than trying (and failing) to connect to a placeholder.
+# All set per-deployment via .env (see .env.example) — this file has no hardcoded
+# server, so the same code runs unchanged wherever it's deployed: locally against
+# a restored copy (Windows Trusted Auth, the dev machine's own domain identity),
+# or on Harmony's server against the live database (SQL Authentication, since a
+# service account there won't have the same trusted domain context) — same
+# pattern the Doornkop/Phakisa dashboards use for this. Blank SERVER by default:
+# is_available() treats that as "feature not configured here" rather than trying
+# (and failing) to connect to a placeholder.
 SERVER = os.environ.get("STPTM_SQL_SERVER", "")
 DATABASE = os.environ.get("STPTM_DATABASE", "STPTM9000")
 BUSSUNIT = os.environ.get("STPTM_BUSSUNIT", "RE")  # confirmed by the user to be Doornkop
+USERNAME = os.environ.get("STPTM_USERNAME", "")
+PASSWORD = os.environ.get("STPTM_PASSWORD", "")
+DRIVER = os.environ.get("STPTM_DRIVER", "ODBC Driver 18 for SQL Server")
 
 PARAM_RATIO_FIELDS = {
     "Safety Bonus": "safety",
@@ -112,10 +119,18 @@ PARAM_RATIO_FIELDS = {
 def _connect():
     if pyodbc is None:
         raise RuntimeError(f"pyodbc is not installed: {_PYODBC_IMPORT_ERROR}")
+    # SQL Authentication (STPTM_USERNAME set) when deployed somewhere without a
+    # trusted domain identity for the database; Trusted Auth (the default) when
+    # running as a domain user who already has access, e.g. local dev against a
+    # restored copy.
+    if USERNAME:
+        auth_clause = f"UID={USERNAME};PWD={PASSWORD};"
+    else:
+        auth_clause = "Trusted_Connection=yes;"
     return pyodbc.connect(
-        "DRIVER={ODBC Driver 18 for SQL Server};"
+        f"DRIVER={{{DRIVER}}};"
         f"SERVER={SERVER};DATABASE={DATABASE};"
-        "Trusted_Connection=yes;TrustServerCertificate=yes;",
+        f"{auth_clause}TrustServerCertificate=yes;",
         timeout=5,
     )
 

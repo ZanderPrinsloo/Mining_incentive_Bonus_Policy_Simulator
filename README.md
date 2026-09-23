@@ -19,6 +19,29 @@ python -m venv .venv
 
 Or press F5 in VS Code ("Run Bonus Policy Simulator").
 
+## Deployment
+
+The same codebase runs unchanged in two places, switched entirely by `.env` —
+no code changes needed to move between them:
+
+- **Local development** (default): `python run_web.py` starts Flask's own dev
+  server with the debugger on, at `http://127.0.0.1:5050`. If `.env` points
+  `STPTM_SQL_SERVER` at a restored copy of the real database, the Doornkop
+  "Import from STPTM9000" feature works locally too, using your own Windows
+  login (Trusted Authentication).
+- **Deployed on Harmony's server**: set `APP_ENV=production` (in `.env` or the
+  real environment) and run the same command — it serves through
+  [waitress](https://docs.pylonsproject.org/projects/waitress/) instead (no
+  debugger, safe to leave reachable on the network), bound to `0.0.0.0:5050`
+  by default. Point `STPTM_SQL_SERVER` at the live database and set
+  `STPTM_USERNAME`/`STPTM_PASSWORD` if the account running the app there
+  doesn't have a trusted domain identity for it (SQL Authentication instead
+  of Trusted Auth). See `.env.example` for every variable.
+
+The app's own data (`data/simulator.db`, the saved scenarios) is separate
+from STPTM9000 — that SQL Server connection is only used for the optional
+real-data import button, never for the app's own storage.
+
 ## How it works
 
 - **Scenario** = one saved simulation: a name, a set of manual production/labour

@@ -14,3 +14,8 @@ pytest==8.2.0
 # isn't available/configured. See .env.example for the connection settings.
 pyodbc==5.3.0
 python-dotenv==1.2.3
+
+# Production WSGI server (run_web.py uses this when APP_ENV=production) — pure
+# Python, no compiler needed, runs natively on Windows unlike gunicorn. Only
+# imported in that mode; local dev (the default) doesn't need it installed.
+waitress==3.0.2

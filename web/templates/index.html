@@ -1954,16 +1954,32 @@
       const c = combinedMode ? computeCombinedResults(combinedData)
         : aggregateMode ? computeAggregateResults(currentRangePeriods()) : current.computed;
       if (!c) return;
-      $('#kpi-base-bonus').textContent = fmtMoney(c.base_bonus);
-      $('#kpi-total-bonus').textContent = fmtMoney(c.total_bonus);
+      // Periods (for comparison) scales every Rand total shown on this tab —
+      // Base Bonus, Total Bonus, the Parameter Breakdown, the chart, and the
+      // vs-actual delta — so what's on screen always matches what Compare
+      // Scenarios will show for this scenario, not just a separate hint line.
+      // Never baked into current.computed itself (that stays the real,
+      // unscaled figure), so it can't double up with range-aggregation the
+      // way the old "Periods (annualisation)" field once did. Rates (R/m²,
+      // R/Employee) are per-unit and don't scale — multiplying a total
+      // without a matching "scaled production" figure to divide by would
+      // just be wrong, and the real per-unit rate doesn't change based on
+      // how many periods you say this represents.
+      const periods = Number(current.base_cfg.periods) || 1;
+      const scaledBase = (c.base_bonus || 0) * periods;
+      const scaledTotal = (c.total_bonus || 0) * periods;
+      $('#kpi-base-bonus').textContent = fmtMoney(scaledBase);
+      $('#kpi-total-bonus').textContent = fmtMoney(scaledTotal);
       $('#kpi-r-sqm').textContent = 'R ' + fmtNum(c.r_per_sqm, 2);
       $('#kpi-r-man').textContent = 'R ' + fmtNum(c.r_per_man, 2);
-      renderResultsPeriods(c);
+      renderResultsPeriods(periods);
 
-      if (c.delta_vs_actual !== null && c.delta_vs_actual !== undefined) {
-        const pos = c.delta_vs_actual >= 0;
+      if (c.actual_total_bonus !== null && c.actual_total_bonus !== undefined) {
+        const delta = scaledTotal - c.actual_total_bonus;
+        const pos = delta >= 0;
         $('#kpi-total-bonus-delta').innerHTML =
-          `<span class="${pos ? 'delta-pos' : 'delta-neg'}">${pos ? '+' : ''}${fmtMoney(c.delta_vs_actual)} vs actual</span>`;
+          `<span class="${pos ? 'delta-pos' : 'delta-neg'}">${pos ? '+' : ''}${fmtMoney(delta)} vs actual</span>` +
+          (periods !== 1 ? ` <span class="text-muted">(×${periods})</span>` : '');
       } else {
         $('#kpi-total-bonus-delta').textContent = 'No actual entered';
       }
@@ -1984,16 +2000,16 @@
       };
       const baseBasisLabel = c.basis === 'sqm' ? 'Rand per m²'
         : c.basis === 'combined' ? 'Sum across gang types' : 'Rand per Employee (R/Man)';
-      row('Base Bonus', baseBasisLabel, c.base_bonus);
+      row('Base Bonus', baseBasisLabel, scaledBase);
       c.parameters.forEach(p => {
         if (!p.enabled) return;
-        row(p.name, BASIS_LABELS[p.basis] || p.basis, p.amount);
+        row(p.name, BASIS_LABELS[p.basis] || p.basis, p.amount * periods);
       });
       $('#tbl-results-foot').innerHTML =
-        `<tr><td colspan="2">Total Bonus</td><td class="text-end">${fmtMoney(c.total_bonus)}</td></tr>`;
+        `<tr><td colspan="2">Total Bonus</td><td class="text-end">${fmtMoney(scaledTotal)}</td></tr>`;
 
       const labels = ['Base Bonus', ...c.parameters.filter(p => p.enabled).map(p => p.name)];
-      const values = [c.base_bonus, ...c.parameters.filter(p => p.enabled).map(p => p.amount)];
+      const values = [scaledBase, ...c.parameters.filter(p => p.enabled).map(p => p.amount * periods)];
       if (compositionChart) compositionChart.destroy();
       compositionChart = new Chart($('#chart-composition'), {
         type: 'doughnut',
@@ -2002,18 +2018,11 @@
       });
     }
 
-    // Purely a display multiplier for cross-scenario comparison (Compare Scenarios
-    // applies the same one server-side) — never baked into base_bonus/total_bonus
-    // themselves, so it can't double up with range-aggregation the way the old
-    // "Periods (annualisation)" field on the Base Bonus tab once did.
-    function renderResultsPeriods(c) {
-      const periods = Number(current.base_cfg.periods) || 1;
+    function renderResultsPeriods(periods) {
       $('#inp-results-periods').value = periods;
-      const scaledBase = (c.base_bonus || 0) * periods;
-      const scaledTotal = (c.total_bonus || 0) * periods;
       $('#results-periods-hint').textContent = periods === 1
-        ? `This scenario's Total Bonus as-is, ×1 — set this higher if it represents fewer real periods than what you're comparing it against in Compare Scenarios (e.g. one manually-entered month standing in for a real mine's 14-month range).`
-        : `×${periods}: Base Bonus ${fmtMoney(scaledBase)}, Total Bonus ${fmtMoney(scaledTotal)} — this is what Compare Scenarios will show for this scenario.`;
+        ? `Base Bonus and Total Bonus above are this scenario's figures as-is, ×1 — set this higher if it represents fewer real periods than what you're comparing it against in Compare Scenarios (e.g. one manually-entered month standing in for a real mine's 14-month range).`
+        : `Base Bonus and Total Bonus above are already ×${periods} — this is also what Compare Scenarios will show for this scenario.`;
     }
     $('#inp-results-periods').addEventListener('change', async () => {
       const val = Math.max(1, Math.round(Number($('#inp-results-periods').value) || 1));

@@ -4,6 +4,9 @@ data/*.db
 # Per-deployment secrets/config — copy .env.example instead
 .env
 
+# Windows service / run_server.py logs on a deployed server
+logs/
+
 # Claude Code local session state
 .claude/
 

@@ -15,7 +15,11 @@ pytest==8.2.0
 pyodbc==5.3.0
 python-dotenv==1.2.3
 
-# Production WSGI server (run_web.py uses this when APP_ENV=production) — pure
-# Python, no compiler needed, runs natively on Windows unlike gunicorn. Only
-# imported in that mode; local dev (the default) doesn't need it installed.
+# Production WSGI server, used by run_server.py and run_service.py — pure
+# Python, no compiler needed, runs natively on Windows unlike gunicorn.
+# Local dev (run_web.py) doesn't need this.
 waitress==3.0.2
+
+# Windows service wrapper for run_service.py — install separately rather than
+# listing here (see deploy/setup.bat): it's Windows-only and would break
+# installing these requirements on any other platform. `pip install pywin32`

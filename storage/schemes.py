@@ -22,7 +22,7 @@ PERIOD_FIELDS = [
     "actual_total_bonus", "actual_r_per_sqm",
     "safety_incidents", "sweepings_distance_m", "stoping_width_cm",
     "quality_blast_count", "awop_count", "break_bonus_total",
-    "safety_bonus_total", "driller_bonus_total",
+    "safety_bonus_total", "driller_bonus_total", "awop_penalty_total",
 ]
 BASE_CFG_FIELDS = ["basis", "threshold", "threshold_bonus", "use_bands", "periods"]
 PARAMETER_FIELDS = ["name", "enabled", "basis", "value", "linked_metric", "notes", "sort_order",

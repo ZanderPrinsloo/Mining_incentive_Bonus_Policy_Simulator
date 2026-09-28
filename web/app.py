@@ -193,6 +193,7 @@ def create_app() -> Flask:
             "break_bonus_total": data["break_bonus_total"],
             "safety_bonus_total": data["safety_bonus_total"],
             "driller_bonus_total": data["driller_bonus_total"],
+            "awop_penalty_total": data.get("awop_penalty_total"),
         }
         existing = next((p for p in store.list_periods(scheme_id) if p["period"] == period), None)
         if existing:
@@ -218,6 +219,28 @@ def create_app() -> Flask:
             if values:
                 store.update_parameter(param["id"], {"value": round(sum(values) / len(values), 2)})
 
+    def _apply_doornkop_awop_real(scheme_id: int) -> None:
+        """One-time switch: an AWOP Penalty parameter still on its default
+        estimate setup (basis "pct_total", gate_metric "awop_count" — a flat
+        -50%/-100% applied to a fraction of the running total based on headcount)
+        gets reconfigured to use the real per-period Rand figure instead
+        (basis "rand_per_unit", linked_metric "awop_penalty_total", value 1),
+        pulled straight from PARTICIPANTSEARN.EMPLOYEEAWOPPENALTY — see
+        stptm_import.py's docstring for why the estimate ran ~2.4x too high.
+        Only touches parameters still in that default state, same guard as
+        _apply_doornkop_parameter_pcts, so a deliberately customized AWOP
+        Penalty parameter is left alone on re-import."""
+        for param in store.list_parameters(scheme_id):
+            if param.get("name") != "AWOP Penalty":
+                continue
+            if param.get("basis") == "pct_total" and param.get("gate_metric") == "awop_count":
+                store.update_parameter(param["id"], {
+                    "basis": "rand_per_unit",
+                    "linked_metric": "awop_penalty_total",
+                    "value": 1,
+                    "gate_metric": None,
+                })
+
     @app.route("/api/schemes/<int:scheme_id>/doornkop-import", methods=["POST"])
     def api_doornkop_import(scheme_id):
         scheme = _scheme_or_404(scheme_id)
@@ -235,6 +258,7 @@ def create_app() -> Flask:
                                           scope_actual_to_gang_type=True)
         period_row = _apply_doornkop_period(scheme_id, period, data)
         _apply_doornkop_parameter_pcts(scheme_id, [data["parameter_pcts"]])
+        _apply_doornkop_awop_real(scheme_id)
 
         return jsonify(_compute_full_state(scheme_id, period_row["id"]))
 
@@ -275,6 +299,7 @@ def create_app() -> Flask:
             scope = f" for section {section}" if section and section.upper() != "ALL" else ""
             raise ValueError(f"No real Doornkop data found between {period_from} and {period_to}{scope}")
         _apply_doornkop_parameter_pcts(scheme_id, all_pcts)
+        _apply_doornkop_awop_real(scheme_id)
 
         return jsonify(_compute_full_state(scheme_id, last_period_row["id"]))
 

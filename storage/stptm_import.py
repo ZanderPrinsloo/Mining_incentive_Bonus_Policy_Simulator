@@ -56,7 +56,9 @@ Stope Breaking, no CREWNO length filter — plus one PARTICIPANTSEARN field):
                                                        the real average per-gang width/distance)
   quality_blast_count = sum(GANGQUALITYBLASTS)       (feeds the Quality Drilling rand_per_unit parameter directly)
   awop_count           = sum(EMPLOYEEAWOPSHIFTS) from PARTICIPANTSEARN, same DISTINCT-dedup as actual_total_bonus
-                          (verified values 0-9 per employee-period, not just a 0/1 flag)
+                          (verified values 0-9 per employee-period, not just a 0/1 flag; informational
+                          Reference Metrics display only — see awop_penalty_total below for what actually
+                          drives the AWOP Penalty parameter)
 All stored as section-period TOTALS per this app's existing Reference Metrics
 convention — nothing here is "not modelled" any more; the real schema has a
 column for every one of these five fields.
@@ -73,6 +75,18 @@ real bonus Rand figures directly, and splitting the real total this way
 (rather than GANGFINAL*'s Stope-Breaking-only split) means Base Bonus +
 Safety Bonus + Quality Drilling reproduces actual_total_bonus exactly even
 though this template only models Stope Breaking crews.
+
+awop_penalty_total = sum(EMPLOYEEAWOPPENALTY) from PARTICIPANTSEARN, same
+DISTINCT-dedup query as actual_total_bonus — the real Rand amount actually
+forfeited to AWOP that period (already negative). This REPLACES the earlier
+approach of estimating the AWOP deduction from awop_count as a fraction of
+total labour (pool_per_crew × fraction × -50%/-100%): that estimate assumed
+every AWOP-flagged employee earns the section average bonus, which verified
+2.4x too high against this real column in spot checks (May 2026: estimated
+-R203,964 vs real -R84,331.56, across 34 employees). web.app wires the AWOP
+Penalty parameter to basis "rand_per_unit", linked_metric "awop_penalty_total",
+value 1 for any Doornkop scheme still on its default AWOP setup, so it uses
+this real figure directly instead of estimating.
 """
 
 from __future__ import annotations
@@ -114,6 +128,25 @@ PARAM_RATIO_FIELDS = {
     "Stoping Width Bonus": "sw",
     "Trigger Bonus (Difficult Conditions)": "trigger",
 }
+
+# Safety Bonus's real Doornkop % (below) is gated by Qualifying Crews =
+# Crew Count - Safety Incidents (see engine.bonus's pct_base gate_metric) —
+# but Safety Incidents (GANGSAFETYIND) only captures ONE of the real reasons
+# a crew forfeits Safety Bonus (a recorded incident); the policy's own
+# Section 54 penalty (4.2.1.3) is a separate, untracked forfeiture reason, so
+# "Crew Count - Safety Incidents" systematically OVER-counts real qualifying
+# crews. Verified against 14 real months (Apr 2025-May 2026): the calculated
+# Safety Bonus overshot the real PARTICIPANTSEARN safety total in EVERY
+# single month (90.8%-137.8%, never under), a consistent bias rather than
+# noise — unlike Physical Condition/Stoping Width/Trigger, which apply
+# flatly (no gate_metric) and don't show this pattern. This factor
+# (real total ÷ calculated total, aggregated across those 14 months) brings
+# the % down to compensate, the same way the Base Bonus curve's own
+# Jensen's-inequality correction factor compensates for its own known
+# approximation — re-derive this if Doornkop starts tracking Section 54
+# incidents as a reference metric in their own right, which would let the
+# gate_metric itself be accurate instead of needing this correction.
+SAFETY_PCT_GATE_CORRECTION = 0.8779
 
 
 def _connect():
@@ -228,7 +261,9 @@ def fetch_period(period: str, section: str | None = None, gang_type: str = "STOP
     calibrated scenario look far worse than it is (confirmed: a Stope
     Breaking scenario at 90% accuracy against its own real Stope Breaking
     total looked like 67% against the whole mine's). The whole-mine total is
-    still visible via the app's separate "Combined (All 3)" mining-type view.
+    still visible via the app's separate multi-select mining-type view (web.app's
+    Results tab lets any combination of the sibling gang-type schemes be checked
+    at once and sums their Results).
 
     IMPORTANT caveat verified against live data: GANGLINKEARN duplicates a
     crew's production/bonus figures (GANGTOTALSQMADJUSTED, GANGFINALBREAKBONUS,
@@ -242,7 +277,19 @@ def fetch_period(period: str, section: str | None = None, gang_type: str = "STOP
     than presenting duplicated Stope-Breaking-derived %'s as if they were
     that type's own. actual_total_bonus and its team/safety/driller split
     are NOT affected by this — PARTICIPANTSEARN's GANGTYPE tagging is real
-    and independently verified to sum correctly across types.
+    and independently verified to sum correctly across types (re-verified
+    2026-09: Stope Breaking/Cleaning/Afternoon Shift May 2026 crew-level sums
+    are genuinely different and additive — R6,535,452 / R2,170,480 / R143,294
+    respectively — not duplicates of each other).
+
+    Consequence for the UI's multi-select mining-type view: checking more than
+    one gang-type sibling sums each one's own CALCULATED Base Bonus/Total Bonus
+    (built from this duplicated total_sqm/crew_count) — for crews that work
+    more than one gang type that period, this double-counts their production,
+    so the combined CALCULATED figure is likely overstated. The combined REAL
+    "actual" total (PARTICIPANTSEARN-derived, per above) is not affected. The
+    web UI shows an explicit warning for this when more than one gang type is
+    selected — see index.html's #mining-type-overlap-warning.
     """
     gang_type_u = gang_type.upper()
     stptm_period = period.replace("-", "")
@@ -306,24 +353,24 @@ def fetch_period(period: str, section: str | None = None, gang_type: str = "STOP
         team_bonus_total = None
         safety_bonus_total = None
         driller_bonus_total = None
+        awop_penalty_total = None
         gangtype_clause = "AND UPPER(LTRIM(RTRIM(GANGTYPE))) = ?" if scope_actual_to_gang_type else ""
         gangtype_params = [gang_type_u] if scope_actual_to_gang_type else []
         if _table_exists(cur, participants_table):
             cur.execute(
                 f"""
-                SELECT SUM(team + safety + driller), SUM(awop_shifts),
-                       SUM(team), SUM(safety), SUM(driller)
+                SELECT SUM(team + safety + driller),
+                       SUM(team), SUM(safety), SUM(driller), SUM(awop_penalty)
                 FROM (
                     SELECT DISTINCT
                         LTRIM(RTRIM(SECTION)) AS section, LTRIM(RTRIM(PERIOD)) AS period,
                         LTRIM(RTRIM(GANG)) AS gang, LTRIM(RTRIM(BUSSUNIT)) AS bussunit,
                         LTRIM(RTRIM(CREWNO)) AS crewno, LTRIM(RTRIM(EMPLOYEE_NO)) AS employee_no,
                         LTRIM(RTRIM(WAGECODE)) AS wagecode, LTRIM(RTRIM(GANGTYPE)) AS gangtype,
-                        LTRIM(RTRIM(EMPLOYEEAWOPPENALTY)) AS awop,
+                        ISNULL(TRY_CAST(EMPLOYEEAWOPPENALTY AS FLOAT), 0) AS awop_penalty,
                         ISNULL(TRY_CAST(EMPLOYEESTOPETEAMBONUS AS FLOAT), 0) AS team,
                         ISNULL(TRY_CAST(EMPLOYEESAFETYBONUS AS FLOAT), 0) AS safety,
-                        ISNULL(TRY_CAST(EMPLOYEEDRILLERBONUS AS FLOAT), 0) AS driller,
-                        ISNULL(TRY_CAST(EMPLOYEEAWOPSHIFTS AS FLOAT), 0) AS awop_shifts
+                        ISNULL(TRY_CAST(EMPLOYEEDRILLERBONUS AS FLOAT), 0) AS driller
                     FROM [{participants_table}]
                     WHERE LTRIM(RTRIM(GANG)) != 'xxx' AND LTRIM(RTRIM(CREWNO)) != '-'
                       {gangtype_clause} {section_clause}
@@ -331,8 +378,35 @@ def fetch_period(period: str, section: str | None = None, gang_type: str = "STOP
                 """,
                 *(gangtype_params + ([section_val] if use_section else [])),
             )
-            (actual_total_bonus, awop_count,
-             team_bonus_total, safety_bonus_total, driller_bonus_total) = cur.fetchone()
+            (actual_total_bonus,
+             team_bonus_total, safety_bonus_total, driller_bonus_total, awop_penalty_total) = cur.fetchone()
+
+            # awop_count is informational only now (feeds the Reference Metrics
+            # "AWOP Count" tile) — the AWOP Penalty parameter itself is driven
+            # by awop_penalty_total (the real Rand figure, above), not this.
+            # It's still worth getting right for display: SUM(EMPLOYEEAWOPSHIFTS)
+            # is a shift COUNT, not an employee count — one employee with
+            # several AWOP shifts in the period inflates it well past the real
+            # number of people affected (verified: 61 real AWOP shifts from
+            # only 31 real distinct employees in one month). Group by employee
+            # first, then weight each one 1 (one AWOP shift) or 2 (two-or-more,
+            # matching the policy's -50%/-100% cap) so the count reads as "how
+            # many employees' worth" rather than raw shift volume.
+            cur.execute(
+                f"""
+                SELECT SUM(CASE WHEN total_shifts >= 2 THEN 2 WHEN total_shifts >= 1 THEN 1 ELSE 0 END)
+                FROM (
+                    SELECT LTRIM(RTRIM(EMPLOYEE_NO)) AS employee_no,
+                           SUM(ISNULL(TRY_CAST(EMPLOYEEAWOPSHIFTS AS FLOAT), 0)) AS total_shifts
+                    FROM [{participants_table}]
+                    WHERE LTRIM(RTRIM(GANG)) != 'xxx' AND LTRIM(RTRIM(CREWNO)) != '-'
+                      {gangtype_clause} {section_clause}
+                    GROUP BY LTRIM(RTRIM(EMPLOYEE_NO))
+                ) AS emp
+                """,
+                *(gangtype_params + ([section_val] if use_section else [])),
+            )
+            (awop_count,) = cur.fetchone()
 
         # ── Parameter %'s — matches get_bonus_rule_data exactly: Stope
         # Breaking only, CREWNO length>=8 and != '0', deduped per (section,
@@ -396,8 +470,9 @@ def fetch_period(period: str, section: str | None = None, gang_type: str = "STOP
         # while still being split into meaningful real components.
         break_bonus_total = team_bonus_total if team_bonus_total is not None else sum(g["break"] for g in gangs)
 
+        _safety_pct_raw = _weighted_pct("safety", lambda g: g["break"])
         parameter_pcts = {
-            "Safety Bonus": _weighted_pct("safety", lambda g: g["break"]),
+            "Safety Bonus": round(_safety_pct_raw * SAFETY_PCT_GATE_CORRECTION, 2) if _safety_pct_raw is not None else None,
             "Physical Condition Bonus": _weighted_pct("condition", lambda g: g["break"]),
             "Stoping Width Bonus": _weighted_pct("sw", lambda g: g["break"]),
             "Trigger Bonus (Difficult Conditions)": _weighted_pct(
@@ -422,6 +497,7 @@ def fetch_period(period: str, section: str | None = None, gang_type: str = "STOP
             "break_bonus_total": round(break_bonus_total, 2),
             "safety_bonus_total": round(safety_bonus_total, 2) if safety_bonus_total is not None else None,
             "driller_bonus_total": round(driller_bonus_total, 2) if driller_bonus_total is not None else None,
+            "awop_penalty_total": round(awop_penalty_total, 2) if awop_penalty_total is not None else None,
             "parameter_pcts": parameter_pcts,
         }
     finally:

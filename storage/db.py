@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS scheme_periods (
     break_bonus_total REAL,
     safety_bonus_total REAL,
     driller_bonus_total REAL,
+    awop_penalty_total REAL,
     created_at TEXT NOT NULL,
     UNIQUE(scheme_id, period)
 );
@@ -182,6 +183,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
             conn.execute("ALTER TABLE scheme_periods ADD COLUMN safety_bonus_total REAL")
         if "driller_bonus_total" not in cols:
             conn.execute("ALTER TABLE scheme_periods ADD COLUMN driller_bonus_total REAL")
+        if "awop_penalty_total" not in cols:
+            conn.execute("ALTER TABLE scheme_periods ADD COLUMN awop_penalty_total REAL")
     if "scheme_periods" not in tables and "scheme_inputs" in tables:
         conn.execute("""
             CREATE TABLE scheme_periods (
@@ -192,7 +195,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 actual_total_bonus REAL, actual_r_per_sqm REAL,
                 safety_incidents REAL, sweepings_distance_m REAL, stoping_width_cm REAL,
                 quality_blast_count REAL, awop_count REAL, break_bonus_total REAL,
-                safety_bonus_total REAL, driller_bonus_total REAL,
+                safety_bonus_total REAL, driller_bonus_total REAL, awop_penalty_total REAL,
                 created_at TEXT NOT NULL,
                 UNIQUE(scheme_id, period)
             )

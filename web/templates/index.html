@@ -93,6 +93,7 @@
     <div class="d-flex align-items-center gap-3" id="mining-type-group"></div>
     <span class="small text-muted" id="mining-type-hint"></span>
   </div>
+  <div class="alert alert-warning d-none py-2 px-3 small mx-3 mb-0" id="mining-type-overlap-warning"></div>
 
   <div class="container-fluid px-3 py-3">
 
@@ -401,13 +402,13 @@
         <div class="row g-3 mb-3">
           <div class="col-sm-6 col-xl-3">
             <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Base Bonus</div>
+              <div class="kpi-lbl">Base Bonus <span class="text-warning d-none" id="kpi-base-bonus-overstated-badge" title="Likely overstated — see warning above">&#9888;</span></div>
               <div class="kpi-val" id="kpi-base-bonus">—</div>
             </div></div>
           </div>
           <div class="col-sm-6 col-xl-3">
             <div class="card kpi-card shadow-sm h-100"><div class="card-body">
-              <div class="kpi-lbl">Total Bonus (this period)</div>
+              <div class="kpi-lbl">Total Bonus (this period) <span class="text-warning d-none" id="kpi-total-bonus-overstated-badge" title="Likely overstated — see warning above">&#9888;</span></div>
               <div class="kpi-val" id="kpi-total-bonus">—</div>
               <div class="kpi-sub" id="kpi-total-bonus-delta">—</div>
             </div></div>
@@ -734,6 +735,7 @@
         ? fmtPeriod(current.scheme.period_from) + ' – ' + fmtPeriod(current.scheme.period_to)
         : '—';
       renderMiningTypeBar();
+      if (selectedGangTypeIds && selectedGangTypeIds.size > 1) await loadCombined(); else combinedData = null;
       renderAll();
     }
 
@@ -742,9 +744,11 @@
     // Afternoon Shift) is stored as separate sibling schemes — each keeps its
     // own Base Bonus Basis/Parameters (different gang types genuinely have
     // different applicable ones, e.g. Afternoon Shift has no Quality Drilling
-    // because real Driller Bonus is 0 for it). "Combined" sums their Results
-    // rather than being a real fourth scheme.
-    let combinedMode = false;
+    // because real Driller Bonus is 0 for it). Any combination of 1-3 can be
+    // checked at once — checking more than one sums their Results (Base Bonus,
+    // Total Bonus, vs-actual, the Parameter Breakdown and chart) rather than
+    // being a fixed "all 3" toggle.
+    let selectedGangTypeIds = null;  // Set of sibling scheme ids currently checked
     let combinedData = null;
     const GANG_TYPE_LABELS = {
       'STOPE BREAKING': 'Stope Breaking', 'STOPE CLEANING': 'Stope Cleaning', 'AFTERNOONSHIFT': 'Afternoon Shift',
@@ -759,44 +763,60 @@
       const bar = $('#mining-type-bar');
       if (sibs.length < 2) {
         bar.classList.add('d-none'); bar.classList.remove('d-flex');
-        combinedMode = false;
+        $('#mining-type-overlap-warning').classList.add('d-none');
+        selectedGangTypeIds = null;
+        combinedData = null;
         return;
       }
       bar.classList.remove('d-none'); bar.classList.add('d-flex');
+      // Reset to just the current scheme whenever the selection doesn't belong
+      // to this sibling group any more (switching scenario via the main picker).
+      if (!selectedGangTypeIds || !sibs.some(s => selectedGangTypeIds.has(s.id))) {
+        selectedGangTypeIds = new Set([currentId]);
+      }
       const group = $('#mining-type-group');
       group.innerHTML = '';
       sibs.forEach(s => {
         const id = 'mtype-' + s.id;
         const wrap = document.createElement('div');
         wrap.className = 'form-check form-check-inline mb-0';
-        wrap.innerHTML = `<input class="form-check-input" type="checkbox" id="${id}" ${!combinedMode && s.id === currentId ? 'checked' : ''}>
+        wrap.innerHTML = `<input class="form-check-input" type="checkbox" id="${id}" ${selectedGangTypeIds.has(s.id) ? 'checked' : ''}>
                            <label class="form-check-label small" for="${id}">${GANG_TYPE_LABELS[s.gang_type] || s.gang_type || s.name}</label>`;
-        wrap.querySelector('input').addEventListener('click', (e) => {
-          e.preventDefault(); // single-select — a click here always lands on this one, never toggles off
-          combinedMode = false;
-          selectScheme(s.id);
+        wrap.querySelector('input').addEventListener('click', async (e) => {
+          e.preventDefault();
+          const checking = !selectedGangTypeIds.has(s.id);
+          if (!checking && selectedGangTypeIds.size === 1) return;  // at least one must stay checked
+          if (checking) selectedGangTypeIds.add(s.id); else selectedGangTypeIds.delete(s.id);
+          if (!selectedGangTypeIds.has(currentId)) {
+            // the scheme driving Manual Inputs/Base Bonus/Parameters got unchecked —
+            // hand that role to another still-checked sibling.
+            const nextPrimary = sibs.find(x => selectedGangTypeIds.has(x.id));
+            await selectScheme(nextPrimary.id);
+            return;
+          }
+          if (selectedGangTypeIds.size > 1) await loadCombined(); else combinedData = null;
+          renderMiningTypeBar();
+          renderResults();
         });
         group.appendChild(wrap);
       });
-      const combinedId = 'mtype-combined';
-      const combinedWrap = document.createElement('div');
-      combinedWrap.className = 'form-check form-check-inline mb-0';
-      combinedWrap.innerHTML = `<input class="form-check-input" type="checkbox" id="${combinedId}" ${combinedMode ? 'checked' : ''}>
-                                 <label class="form-check-label small" for="${combinedId}">Combined (All ${sibs.length})</label>`;
-      combinedWrap.querySelector('input').addEventListener('click', async (e) => {
-        e.preventDefault();
-        combinedMode = true;
-        await loadCombined();
-        renderMiningTypeBar();
-        renderResults();
-      });
-      group.appendChild(combinedWrap);
-      $('#mining-type-hint').textContent = combinedMode
-        ? 'Results below are summed across all ' + sibs.length + ' gang types (each at its own most recent period) — Manual Inputs/Base Bonus/Parameters still show "' + (GANG_TYPE_LABELS[current.scheme.gang_type] || current.scheme.gang_type) + '" only.'
+      const n = selectedGangTypeIds.size;
+      const warn = $('#mining-type-overlap-warning');
+      $('#mining-type-hint').textContent = n > 1
+        ? 'Real "vs actual" total below is summed across the ' + n + ' selected gang types (each at its own most recent period) — Manual Inputs/Base Bonus/Parameters still show "' + (GANG_TYPE_LABELS[current.scheme.gang_type] || current.scheme.gang_type) + '" only.'
         : '';
+      if (n > 1) {
+        warn.classList.remove('d-none');
+        warn.innerHTML = '<strong>Calculated Base Bonus / Total Bonus above are likely overstated when combining gang types.</strong> ' +
+          'Confirmed in the source data: crews that work Stope Cleaning or Afternoon Shift in addition to Stope Breaking are recorded with the same production (m², crew size) under both gang-type tags, not separate production — so summing the calculated figures double-counts shared crews\' output. ' +
+          'The real <strong>"vs actual"</strong> comparison is not affected (the real paid-bonus data is genuinely separate per gang type, verified) and can be trusted.';
+      } else {
+        warn.classList.add('d-none');
+        warn.innerHTML = '';
+      }
     }
     async function loadCombined() {
-      const sibs = siblingSchemes();
+      const sibs = siblingSchemes().filter(s => selectedGangTypeIds.has(s.id));
       const states = await Promise.all(sibs.map(s => api('/api/schemes/' + s.id)));
       combinedData = states.map(st => ({ scheme: st.scheme, computed: st.computed }));
     }
@@ -1951,9 +1971,12 @@
 
     function renderResults() {
       const aggregateMode = isRangeAggregateMode();
-      const c = combinedMode ? computeCombinedResults(combinedData)
+      const multiGangType = !!(selectedGangTypeIds && selectedGangTypeIds.size > 1);
+      const c = multiGangType ? computeCombinedResults(combinedData)
         : aggregateMode ? computeAggregateResults(currentRangePeriods()) : current.computed;
       if (!c) return;
+      $('#kpi-base-bonus-overstated-badge').classList.toggle('d-none', !multiGangType);
+      $('#kpi-total-bonus-overstated-badge').classList.toggle('d-none', !multiGangType);
       // Periods (for comparison) scales every Rand total shown on this tab —
       // Base Bonus, Total Bonus, the Parameter Breakdown, the chart, and the
       // vs-actual delta — so what's on screen always matches what Compare

@@ -153,6 +153,7 @@
                   </div>
                 </div>
                 <div class="small mt-2 d-none" id="doornkop-import-summary" style="background:var(--hg-light);border-radius:6px;padding:.5rem .75rem"></div>
+                <div class="alert alert-warning d-none py-2 px-3 small mt-2 mb-0" id="doornkop-import-unavailable"></div>
               </div>
             </div>
           </div>
@@ -917,6 +918,9 @@
     }
     checkDoornkopImportAvailability();
 
+    function isDoornkopScheme() {
+      return !!(current && current.scheme.template_key === 'doornkop' && !current.scheme.is_template);
+    }
     function isDoornkopMode() {
       return !!(current && doornkopImportStatus && current.scheme.template_key === 'doornkop'
         && !current.scheme.is_template && doornkopImportStatus.available);
@@ -1002,7 +1006,10 @@
     // for the STPTM9000 import range picker.
     function renderPeriodPicker() {
       const doornkopMode = isDoornkopMode();
-      $('#period-card').classList.toggle('d-none', !doornkopMode);
+      // Shown whenever this IS a Doornkop scheme, even if import is unavailable —
+      // otherwise the "why is import unavailable" warning below has nowhere to
+      // render and the feature just silently looks like it doesn't exist.
+      $('#period-card').classList.toggle('d-none', !isDoornkopScheme());
       renderDoornkopImportRow();
       if (doornkopMode) {
         const hasPeriods = currentRangePeriods().length > 0;
@@ -1027,6 +1034,16 @@
     function renderDoornkopImportRow() {
       if (!current || !doornkopImportStatus) return;
       $('#doornkop-import-summary').classList.add('d-none'); // stale from a previous period/scenario
+      const unavailableBox = $('#doornkop-import-unavailable');
+      if (isDoornkopScheme() && !doornkopImportStatus.available && doornkopImportStatus.reason) {
+        unavailableBox.classList.remove('d-none');
+        unavailableBox.innerHTML = '<strong>Real-data import (STPTM9000) is unavailable in this deployment:</strong> ' +
+          doornkopImportStatus.reason.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) +
+          '. Manual Inputs can still be edited by hand — this only affects pulling real figures automatically.';
+      } else {
+        unavailableBox.classList.add('d-none');
+        unavailableBox.innerHTML = '';
+      }
       const show = isDoornkopMode();
       const row = $('#doornkop-import-row');
       row.classList.toggle('d-none', !show);

@@ -169,10 +169,11 @@ def create_app() -> Flask:
 
     @app.route("/api/doornkop-import/status")
     def api_doornkop_import_status():
-        available = stptm_import.is_available()
+        detail = stptm_import.availability_detail()
+        available = detail["available"]
         periods = stptm_import.list_available_periods() if available else []
         sections = stptm_import.list_sections() if available else []
-        return jsonify({"available": available, "periods": periods, "sections": sections})
+        return jsonify({"available": available, "reason": detail["reason"], "periods": periods, "sections": sections})
 
     def _apply_doornkop_period(scheme_id: int, period: str, data: dict) -> dict:
         """Writes one real STPTM period's Manual Inputs into scheme_periods.

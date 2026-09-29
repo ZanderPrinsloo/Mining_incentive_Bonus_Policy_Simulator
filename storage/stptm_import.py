@@ -109,12 +109,17 @@ except ImportError as e:  # pragma: no cover - exercised only when pyodbc isn't 
 
 # All set per-deployment via .env (see .env.example) — this file has no hardcoded
 # server, so the same code runs unchanged wherever it's deployed: locally against
-# a restored copy (Windows Trusted Auth, the dev machine's own domain identity),
-# or on Harmony's server against the live database (SQL Authentication, since a
-# service account there won't have the same trusted domain context) — same
-# pattern the Doornkop/Phakisa dashboards use for this. Blank SERVER by default:
-# is_available() treats that as "feature not configured here" rather than trying
-# (and failing) to connect to a placeholder.
+# a restored copy (STPTM_SQL_SERVER = a dev machine's own named instance), or on
+# Harmony's server where STPTM9000 runs on that SAME machine (STPTM_SQL_SERVER =
+# localhost\<INSTANCE_NAME> there). Trusted Auth (blank STPTM_USERNAME) works in
+# both cases — same-machine connections don't need domain Kerberos delegation —
+# but whichever Windows identity actually runs this app still needs its own SQL
+# Server login granted on STPTM9000 (see DEPLOY.md's Troubleshooting section;
+# for the Windows service deployment that's LocalSystem/NT AUTHORITY\SYSTEM by
+# default unless installed under a specific account). SQL Authentication
+# (STPTM_USERNAME set) is only a fallback for when that's not workable. Blank
+# SERVER by default: is_available() treats that as "feature not configured
+# here" rather than trying (and failing) to connect to a placeholder.
 SERVER = os.environ.get("STPTM_SQL_SERVER", "")
 DATABASE = os.environ.get("STPTM_DATABASE", "STPTM9000")
 BUSSUNIT = os.environ.get("STPTM_BUSSUNIT", "RE")  # confirmed by the user to be Doornkop
@@ -172,15 +177,31 @@ def is_available() -> bool:
     """Cheap reachability check — used to decide whether to show the Import
     button at all. False on any error (driver missing, unconfigured/unreachable
     server, wrong machine, etc.) rather than raising, since this runs on every
-    Doornkop-scenario page load."""
-    if pyodbc is None or not SERVER:
-        return False
+    Doornkop-scenario page load. See availability_detail() for WHY it's False —
+    this stays a plain bool for callers that just need the yes/no."""
+    return availability_detail()["available"]
+
+
+def availability_detail() -> dict:
+    """Same reachability check as is_available(), but returns the actual reason
+    when unavailable instead of swallowing it — a bare False here gives no way
+    to tell "SQL Server not configured" apart from "wrong hostname", "no login
+    for this Windows account", "driver not installed", etc., which is exactly
+    the kind of silent failure that's indistinguishable from the feature just
+    not existing once deployed somewhere the happy path wasn't already proven
+    (e.g. a server where the account running this app has no SQL Server login
+    yet, or STPTM_SQL_SERVER points at the wrong instance from that machine's
+    network position). {available, reason} — reason is None when available."""
+    if pyodbc is None:
+        return {"available": False, "reason": f"pyodbc is not installed: {_PYODBC_IMPORT_ERROR}"}
+    if not SERVER:
+        return {"available": False, "reason": "STPTM_SQL_SERVER is not set in this deployment's environment/.env"}
     try:
         conn = _connect()
         conn.close()
-        return True
-    except Exception:
-        return False
+        return {"available": True, "reason": None}
+    except Exception as e:
+        return {"available": False, "reason": str(e)}
 
 
 def _table_exists(cur, name: str) -> bool:

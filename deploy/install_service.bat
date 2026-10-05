@@ -24,10 +24,13 @@ if not exist ".venv\Scripts\python.exe" (
 
 call ".venv\Scripts\activate.bat"
 
+rem --startup auto is required here: pywin32 defaults a newly installed
+rem service to Manual start, which would NOT start automatically on reboot
+rem without this flag.
 if "%~1"=="" (
-    python run_service.py install
+    python run_service.py --startup auto install
 ) else (
-    python run_service.py --username %~1 --password %~2 install
+    python run_service.py --username %~1 --password %~2 --startup auto install
 )
 if errorlevel 1 ( echo ERROR: service install failed & exit /b 1 )
 

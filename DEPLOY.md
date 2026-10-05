@@ -100,6 +100,11 @@ account installs it as **LocalSystem** instead — a different identity
 (`NT AUTHORITY\SYSTEM`) that needs its own SQL Server login granted before
 STPTM9000 will connect; see Troubleshooting below if you go that route.
 
+This installs with **Automatic** startup — it starts on boot with no one
+logged in, and restarts automatically if the server reboots. (This is set
+via `--startup auto` in `install_service.bat`; pywin32 defaults a new
+service to Manual otherwise, which would silently NOT survive a reboot.)
+
 To uninstall: `deploy\uninstall_service.bat`.
 
 ---
